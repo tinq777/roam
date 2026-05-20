@@ -1,214 +1,258 @@
-# ROAM — Deployment Guide
-Version 1.0.0
+# ROAM — Deploy Guide
+> Personal travel deal hunting PWA. Sydney-based. Photos powered by Unsplash.
 
 ---
 
-## What You're Deploying
+## What you're building
 
 ```
-index.html    — The complete ROAM PWA (runs in any browser)
-manifest.json — PWA install configuration
-sw.js         — Service worker (offline support)
-worker.js     — Cloudflare Worker (API proxy backend)
-icons/        — App icons (generate these — see step 3)
+iPhone / Browser
+      │
+      ▼
+ROAM index.html  ──────►  Cloudflare Worker  ──────►  Kiwi (flights)
+(your device)              (your-subdomain              Airbnb (stays)
+                            .workers.dev)               Booking.com (stays)
+                                                        Unsplash (photos)
+                                                        Claude (AI search)
 ```
 
----
-
-## Step 1 — Get Your API Keys
-
-### 1a. Anthropic (Claude AI)
-1. Go to https://anthropic.com → Sign up
-2. API → API Keys → Create Key
-3. Copy and save as: `ANTHROPIC_API_KEY`
-4. Cost: ~$1–3/month for personal use
-
-### 1b. Kiwi Tequila (Flights)
-1. Go to https://tequila.kiwi.com
-2. Sign up for a free account
-3. Go to API → My API Keys
-4. Copy and save as: `KIWI_API_KEY`
-5. Cost: Free for personal/dev use
-
-### 1c. RapidAPI — Airbnb (Stays)
-1. Go to https://rapidapi.com
-2. Search for "Airbnb API" (look for airbnb13)
-3. Subscribe to the free tier
-4. Copy your RapidAPI key as: `RAPIDAPI_KEY`
-5. Cost: Free tier ~100 requests/month
-
-### 1d. Booking.com Affiliate (Stays)
-1. Go to https://www.booking.com/affiliate-program
-2. Apply and get approved (usually 1–2 days)
-3. Get your Affiliate ID
-4. Save as: `BOOKING_AFFILIATE_ID`
-5. Cost: Free — you earn commission on bookings
-
-### 1e. Unsplash (Destination Photos)
-1. Go to https://unsplash.com/developers
-2. Create a new application
-3. Copy your Access Key as: `UNSPLASH_ACCESS_KEY`
-4. Cost: Free — 50 requests/hour
+All API keys live **only in the Worker** — never in the HTML file you deploy.
 
 ---
 
-## Step 2 — Deploy the Cloudflare Worker
+## Step 1 — Get your API keys
 
-### 2a. Create a Cloudflare account
-1. Go to https://cloudflare.com → Sign up (free)
-2. Go to Workers & Pages → Create Worker
-3. Name it: `roam-api`
+| Service | Sign up | What it does | Cost |
+|---------|---------|--------------|------|
+| **Kiwi Tequila** | [tequila.kiwi.com](https://tequila.kiwi.com) | Flight search | Free |
+| **Airbnb (RapidAPI)** | [rapidapi.com](https://rapidapi.com/3b-data-3b-data-default/api/airbnb13) → Search "airbnb13" | Stay search | 100 req/mo free |
+| **Booking.com (RapidAPI)** | [rapidapi.com](https://rapidapi.com/DataCrawler/api/booking-com15) → Search "booking-com15" | Stay search | 500 req/mo free |
+| **Unsplash** | [unsplash.com/developers](https://unsplash.com/developers) → New Application | Destination & property photos | 50 req/hr free |
+| **Anthropic** | [console.anthropic.com](https://console.anthropic.com) → API Keys | AI natural language search | ~$1–3/month |
+| **Cloudflare** | [cloudflare.com](https://cloudflare.com) | Worker hosting | Free (100k req/day) |
 
-### 2b. Deploy worker.js
-**Option A — Cloudflare Dashboard (easiest)**
-1. Open your Worker in the dashboard
-2. Click "Edit Code"
-3. Paste the contents of worker.js
-4. Click "Save and Deploy"
+> 💡 ROAM works without all keys — it falls back to rich demo data for any missing service.
+> Start with just Cloudflare + Kiwi to get real flights immediately.
 
-**Option B — Wrangler CLI**
+---
+
+## Step 2 — Install Wrangler (Cloudflare CLI)
+
 ```bash
 npm install -g wrangler
 wrangler login
-wrangler deploy worker.js --name roam-api
 ```
 
-### 2c. Set Environment Variables
-In the Cloudflare Worker dashboard:
-1. Go to Settings → Variables
-2. Add each secret (use "Encrypt" toggle):
-
-```
-ANTHROPIC_API_KEY     = your-anthropic-key
-KIWI_API_KEY          = your-kiwi-key
-RAPIDAPI_KEY          = your-rapidapi-key
-BOOKING_AFFILIATE_ID  = your-booking-id
-UNSPLASH_ACCESS_KEY   = your-unsplash-key
-ALLOWED_ORIGIN        = https://yourdomain.com
-```
-
-### 2d. Note your Worker URL
-It will look like:
-`https://roam-api.your-subdomain.workers.dev`
+This opens a browser to authenticate with your Cloudflare account.
 
 ---
 
-## Step 3 — Generate App Icons
+## Step 3 — Create your Worker project
 
-You need two PNG icons for the PWA:
-- `icons/icon-192.png` (192×192px)
-- `icons/icon-512.png` (512×512px)
+```bash
+mkdir roam-worker
+cd roam-worker
+```
 
-**Quickest option:**
-1. Go to https://favicon.io or https://realfavicongenerator.net
-2. Upload a simple "R" or crosshair logo on a #04080f background
-3. Download and place in the `icons/` folder
+Copy `worker.js` into this folder, then create `wrangler.toml`:
+
+```toml
+name = "roam-worker"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+# Non-secret config (optional)
+APP_NAME = "ROAM"
+```
 
 ---
 
-## Step 4 — Update index.html
+## Step 4 — Add your API keys as secrets
 
-Open index.html and update line near the top:
+Run each command and paste your key when prompted:
+
+```bash
+wrangler secret put KIWI_API_KEY
+wrangler secret put AIRBNB_API_KEY
+wrangler secret put BOOKING_API_KEY
+wrangler secret put UNSPLASH_ACCESS_KEY
+wrangler secret put ANTHROPIC_API_KEY
+```
+
+> ⚠️ Never put API keys directly in `wrangler.toml` or `worker.js` — secrets are encrypted.
+> You can skip keys you don't have yet — ROAM will use mock data for those services.
+
+---
+
+## Step 5 — Deploy the Worker
+
+```bash
+wrangler deploy
+```
+
+You'll see output like:
+```
+✅ Deployed roam-worker to https://roam-worker.YOUR-SUBDOMAIN.workers.dev
+```
+
+Copy that URL — you'll need it in the next step.
+
+---
+
+## Step 6 — Update WORKER_URL in index.html
+
+Open `index.html` and find line ~2026:
 
 ```javascript
-const WORKER_URL = 'https://roam-api.your-subdomain.workers.dev';
+const WORKER_URL = 'https://your-worker.your-subdomain.workers.dev'; // ← UPDATE THIS
 ```
 
-Also add the service worker registration and manifest link.
-Add this inside `<head>`:
-```html
-<link rel="manifest" href="/manifest.json">
-```
+Replace with your actual Worker URL:
 
-Add this before `</body>`:
-```html
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js');
-  }
-</script>
+```javascript
+const WORKER_URL = 'https://roam-worker.YOUR-SUBDOMAIN.workers.dev';
 ```
 
 ---
 
-## Step 5 — Host the Frontend
+## Step 7 — Verify it's working
 
-### Option A — Cloudflare Pages (recommended, free)
-1. In Cloudflare dashboard → Pages → Create project
-2. Upload your folder (index.html, manifest.json, sw.js, icons/)
-3. Your app URL: `https://roam.pages.dev` (or custom domain)
+```bash
+# Health check
+curl https://roam-worker.YOUR-SUBDOMAIN.workers.dev/health
+# Should return: {"status":"ok","version":"1.0.0","app":"ROAM"}
 
-### Option B — GitHub Pages (free)
-1. Create a repo on github.com
-2. Push your files
-3. Settings → Pages → Deploy from main branch
-4. URL: `https://yourusername.github.io/roam`
+# Photo test
+curl "https://roam-worker.YOUR-SUBDOMAIN.workers.dev/api/photo?q=bali+indonesia+travel"
+# Should return: {"url":"https://images.unsplash.com/...","source":"unsplash"}
 
-### Option C — Any static host
-Netlify, Vercel, or any web server that serves static files.
-No server-side processing needed — it's all static.
+# Flight test
+curl "https://roam-worker.YOUR-SUBDOMAIN.workers.dev/api/flights?from=SYD&currency=AUD"
+# Should return: {"flights":[...]}
+```
 
 ---
 
-## Step 6 — Test It
+## Step 8 — Host index.html (Cloudflare Pages — recommended)
 
-1. Open your hosted URL in Safari on iPhone
-2. Tap Share → Add to Home Screen
-3. The app installs as a PWA
-4. Test the AI search (requires Worker to be live)
-5. Test a flight search
-6. Save a deal to Watch and check price history
+**Option A: Cloudflare Pages (free, fast)**
+1. Go to [pages.cloudflare.com](https://pages.cloudflare.com)
+2. Create a project → Upload assets
+3. Upload `index.html`
+4. Your app is live at `https://roam.pages.dev` (or custom domain)
+
+**Option B: GitHub Pages (free)**
+1. Create a repo, push `index.html` as the root file
+2. Settings → Pages → Deploy from branch → main
+3. Live at `https://yourusername.github.io/roam/`
+
+**Option C: Just open the file locally**
+Open `index.html` directly in Safari on your Mac — it works without hosting.
+For iPhone, use Option A or B.
 
 ---
 
-## CORS Configuration
+## Step 9 — Install on iPhone
 
-If you get CORS errors, update `ALLOWED_ORIGIN` in your Worker to match your exact frontend URL:
+1. Open your hosted URL in **Safari** (must be Safari)
+2. Tap the **Share** button (box with arrow)
+3. Scroll down → **Add to Home Screen**
+4. Tap **Add**
+
+ROAM now appears as a full-screen app on your home screen with no browser chrome.
+
+---
+
+## Photos — How They Work
+
 ```
-ALLOWED_ORIGIN = https://your-roam-url.pages.dev
+When ROAM loads a card:
+  1. Calls Worker → /api/photo?q=bali+indonesia+travel
+  2. Worker calls Unsplash API with your key
+  3. Returns a real, high-quality travel photo URL
+  4. Photo is cached in memory (no repeat requests)
+
+If Unsplash key not set OR rate limit hit:
+  → Falls back to Picsum (beautiful random photos, always available)
+  → Consistent per-destination (same seed = same photo every time)
 ```
+
+**Unsplash rate limits:** 50 requests/hour on the free tier.
+ROAM caches photos per session so you won't hit this in normal use.
+
+For property-specific photos from Airbnb/Booking.com — those come directly
+from the API responses as real listing images.
+
+---
+
+## localStorage Reference
+
+| Key | Value | Default |
+|-----|-------|---------|
+| `roam_home_airport` | IATA code | `SYD` |
+| `roam_home_airport_name` | Display name | `Sydney` |
+| `roam_currency` | ISO currency | `AUD` |
+| `roam_adults` | Number | `2` |
+| `roam_children` | Number | `2` |
+| `roam_bedrooms` | Number | `2` |
+| `roam_radius_hrs` | Flight radius | `4` |
+| `roam_stay_types` | JSON array | `["all"]` |
+| `roam_theme` | `dark` / `light` | `dark` |
+| `roam_watchlist` | JSON | `{"flights":[],"stays":[]}` |
+| `roam_price_history` | JSON | `{}` |
+| `roam_onboarded` | `"1"` | unset |
+
+**Reset everything from browser console:**
+```javascript
+['roam_theme','roam_home_airport','roam_home_airport_name','roam_currency','roam_adults','roam_children','roam_bedrooms','roam_radius_hrs','roam_stay_types','roam_watchlist','roam_price_history','roam_onboarded'].forEach(k=>localStorage.removeItem(k));location.reload();
+```
+
+---
+
+## Monthly Cost Estimate
+
+| Service | Free Tier | Typical Usage | Cost |
+|---------|-----------|---------------|------|
+| Cloudflare Workers | 100k req/day | ~200 req/day | $0 |
+| Kiwi Tequila | Generous free tier | ~50 req/day | $0 |
+| Airbnb (RapidAPI) | 100 req/month | ~50 req/month | $0 |
+| Booking.com (RapidAPI) | 500 req/month | ~100 req/month | $0 |
+| Unsplash | 50 req/hr | ~30 req/hr peak | $0 |
+| Anthropic Claude | Pay per use | ~100 queries | ~$1–3 |
+| **Total** | | | **~$1–3/month** |
 
 ---
 
 ## Troubleshooting
 
-**AI search not working**
-→ Check ANTHROPIC_API_KEY is set correctly in Worker
-→ Check WORKER_URL in index.html points to your Worker
-
-**No flights showing**
-→ Check KIWI_API_KEY is valid
-→ Test: https://your-worker.workers.dev/api/health
+**"Showing demo data" banner appears**
+→ Worker URL not set, or Worker not deployed yet. Check WORKER_URL in index.html.
 
 **Photos not loading**
-→ Check UNSPLASH_ACCESS_KEY
-→ Photos fall back gracefully if key is missing
+→ Check UNSPLASH_ACCESS_KEY is set correctly with `wrangler secret list`
+→ Picsum fallback should always work — if even that fails, check network.
 
-**App not installing as PWA**
-→ Must be served over HTTPS
-→ manifest.json must be accessible
-→ sw.js must be in root directory
+**No flights returned**
+→ Verify KIWI_API_KEY: `curl -H "apikey: YOUR_KEY" "https://api.tequila.kiwi.com/v2/search?fly_from=SYD&date_from=01/06/2026&date_to=10/06/2026&curr=AUD"`
 
----
+**CORS error in console**
+→ Make sure you're calling the Worker URL (https://...) not localhost.
 
-## Monthly Cost Estimate (Personal Use)
-
-```
-Cloudflare Workers    $0   (100k requests/day free)
-Kiwi Tequila          $0   (free tier)
-RapidAPI Airbnb       $0   (free tier)
-Booking.com           $0   (affiliate — earn commission)
-Unsplash              $0   (50 req/hr free)
-Anthropic Claude      ~$1–3 (pay per AI search query)
-─────────────────────────────
-Total:               ~$1–3/month
-```
+**wrangler: command not found**
+→ Run `npm install -g wrangler` or use `npx wrangler`
 
 ---
 
-## Support & Updates
+## Files
 
-ROAM is open source under the MIT License.
-Star the repo: https://github.com/roamapp/roam
+```
+roam/
+├── index.html    ← The complete PWA (host this)
+├── worker.js     ← Cloudflare Worker backend (deploy this)
+└── deploy.md     ← This file
+```
 
-Built for travellers who hate paying full price.
+---
+
+*ROAM v1.0.0 · MIT License · Built for personal family use*
