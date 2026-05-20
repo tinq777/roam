@@ -1858,10 +1858,11 @@ async function searchFlights() {
   const aiQuery = document.getElementById('fs-ai').value;
   const from = document.getElementById('fs-from').value;
   const to = document.getElementById('fs-to').value;
+  const workerUrl = getWorkerUrl();
 
   try {
-    // Try real API via worker
-    const resp = await fetch(WORKER_URL + '/api/flights', {
+    if (!workerUrl) throw new Error('No worker URL');
+    const resp = await fetch(workerUrl + '/api/flights', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ from, to, depart: document.getElementById('fs-depart').value, return: document.getElementById('fs-return').value, adults: STATE.adults, children: STATE.children, aiQuery })
@@ -1881,8 +1882,10 @@ async function searchStays() {
   const results = document.getElementById('search-results');
   results.style.display = 'block';
   results.innerHTML = '<div style="padding:20px 0;color:var(--textDim);font-size:12px;letter-spacing:1px">SEARCHING STAYS...</div>';
+  const workerUrl = getWorkerUrl();
   try {
-    const resp = await fetch(WORKER_URL + '/api/stays', {
+    if (!workerUrl) throw new Error('No worker URL');
+    const resp = await fetch(workerUrl + '/api/stays', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ destination: document.getElementById('ss-dest').value, checkin: document.getElementById('ss-checkin').value, checkout: document.getElementById('ss-checkout').value, guests: STATE.adults + STATE.children, bedrooms: STATE.bedrooms })
