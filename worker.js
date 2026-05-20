@@ -53,6 +53,12 @@ export default {
       return json({ status: 'ok', version: '2.0.0', app: 'ROAM' });
     }
 
+    // Ping — requires token, used by Test button to verify token is correct
+    if (path === '/api/ping') {
+      if (!isAuthorized(request, env)) return unauthorized();
+      return json({ status: 'ok', auth: 'valid' });
+    }
+
     // All other routes require token
     if (!isAuthorized(request, env)) {
       return unauthorized();

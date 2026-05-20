@@ -1013,14 +1013,27 @@ body.light{
       <div id="hunt-inspire" style="display:none" class="scroll-content">
         <div style="padding:16px 20px 0">
           <div style="font-family:var(--display);font-size:32px;letter-spacing:3px;color:var(--textPrimary)">INSPIRE ME</div>
-          <div style="font-size:11px;color:var(--textDim);letter-spacing:2px;margin-bottom:16px">CHEAPEST PLACES FROM SYD RIGHT NOW</div>
+          <div style="font-size:11px;color:var(--textDim);letter-spacing:2px;margin-bottom:12px">BEST DEALS FROM SYD RIGHT NOW</div>
         </div>
 
-        <div style="padding:0 20px">
+        <!-- Flights / Stays toggle -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);margin-bottom:0;">
+          <button id="inspire-flights-btn" onclick="switchInspireType('flights')" style="padding:12px;background:none;border:none;border-bottom:2px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:11px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>
+            FLIGHTS
+          </button>
+          <button id="inspire-stays-btn" onclick="switchInspireType('stays')" style="padding:12px;background:none;border:none;border-bottom:2px solid transparent;color:var(--textDim);font-family:var(--mono);font-size:11px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            STAYS
+          </button>
+        </div>
+
+        <div style="padding:16px 20px 0">
+          <!-- Period filter -->
           <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">
-            <button class="chart-tab active" onclick="switchInspireFilter('weekend',this)">This Weekend</button>
-            <button class="chart-tab" onclick="switchInspireFilter('month',this)">Next Month</button>
-            <button class="chart-tab" onclick="switchInspireFilter('anytime',this)">Anytime</button>
+            <button class="chart-tab active" id="inspire-period-weekend" onclick="switchInspireFilter('weekend',this)">This Weekend</button>
+            <button class="chart-tab" id="inspire-period-month" onclick="switchInspireFilter('month',this)">Next Month</button>
+            <button class="chart-tab" id="inspire-period-anytime" onclick="switchInspireFilter('anytime',this)">Anytime</button>
           </div>
           <div id="inspire-list"></div>
         </div>
@@ -1607,9 +1620,10 @@ function switchWatchTab(tab, btn) {
 }
 
 function switchInspireFilter(filter, btn) {
-  btn.closest('div').querySelectorAll('.chart-tab').forEach(b => b.classList.remove('active'));
+  _inspirePeriod = filter;
+  document.querySelectorAll('[id^="inspire-period-"]').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  renderInspire(filter);
+  renderInspire();
 }
 
 // ══════════════════════════════════════════════════
@@ -1639,7 +1653,17 @@ const MOCK_INSPIRE = [
   { city:'Phuket', country:'Thailand', code:'HKT', price:445, img:'https://images.unsplash.com/photo-1589394815804-964ed0be2eb5?w=600&q=80', drop:12, tag:'' },
 ];
 
-const MOCK_LM_FLIGHTS = [
+const MOCK_INSPIRE_STAYS = [
+  { id:'is1', title:'Clifftop Cabin · Blue Mountains', type:'cabin', location:'Blue Mountains, NSW', price:285, avg:380, drop:25, beds:2, guests:4, nights:2, source:'airbnb', bookUrl:'https://www.airbnb.com.au', img:'https://images.unsplash.com/photo-1510798831971-661eb04b3739?w=600&q=80', period:'weekend', tag:'UNIQUE STAY' },
+  { id:'is2', title:'Beachfront House · Byron Bay', type:'house', location:'Byron Bay, NSW', price:420, avg:520, drop:19, beds:3, guests:6, nights:2, source:'airbnb', bookUrl:'https://www.airbnb.com.au', img:'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=600&q=80', period:'weekend', tag:'HOT DEAL' },
+  { id:'is3', title:'Hinterland Farmhouse · Bangalow', type:'countryside', location:'Bangalow, NSW', price:310, avg:310, drop:0, beds:3, guests:6, nights:2, source:'airbnb', bookUrl:'https://www.airbnb.com.au', img:'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=600&q=80', period:'weekend', tag:'' },
+  { id:'is4', title:'Treehouse Retreat · Hunter Valley', type:'cabin', location:'Hunter Valley, NSW', price:245, avg:320, drop:23, beds:1, guests:2, nights:2, source:'airbnb', bookUrl:'https://www.airbnb.com.au', img:'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80', period:'weekend', tag:'UNIQUE STAY' },
+  { id:'is5', title:'Luxury Villa · Bali', type:'villa', location:'Seminyak, Bali', price:320, avg:450, drop:29, beds:3, guests:6, nights:7, source:'airbnb', bookUrl:'https://www.airbnb.com.au', img:'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=600&q=80', period:'month', tag:'BEST VALUE' },
+  { id:'is6', title:'Modern Apartment · Tokyo', type:'apartment', location:'Shinjuku, Tokyo', price:180, avg:220, drop:18, beds:2, guests:4, nights:7, source:'booking', bookUrl:'https://www.booking.com', img:'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=600&q=80', period:'month', tag:'' },
+  { id:'is7', title:'Heritage Cottage · Queenstown', type:'house', location:'Queenstown, NZ', price:290, avg:360, drop:19, beds:2, guests:4, nights:5, source:'airbnb', bookUrl:'https://www.airbnb.com.au', img:'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=600&q=80', period:'month', tag:'ESCAPE' },
+  { id:'is8', title:'Overwater Bungalow · Maldives', type:'villa', location:'North Malé Atoll', price:890, avg:1200, drop:26, beds:1, guests:2, nights:7, source:'booking', bookUrl:'https://www.booking.com', img:'https://images.unsplash.com/photo-1520466809213-7b9a56adcd45?w=600&q=80', period:'anytime', tag:'BUCKET LIST' },
+  { id:'is9', title:'Penthouse · Bangkok', type:'apartment', location:'Sukhumvit, Bangkok', price:195, avg:260, drop:25, beds:2, guests:4, nights:7, source:'booking', bookUrl:'https://www.booking.com', img:'https://images.unsplash.com/photo-1508009603885-50cf7c579365?w=600&q=80', period:'anytime', tag:'' },
+];
   { id:'lf1', from:'SYD', to:'MEL', toCity:'Melbourne', airline:'Virgin Australia', price:89, avg:245, drop:64, departs:'Today 18:30', logo:'VA', bookUrl:'https://www.virginaustralia.com' },
   { id:'lf2', from:'SYD', to:'BNE', toCity:'Brisbane', airline:'Qantas', price:105, avg:215, drop:51, departs:'Today 21:15', logo:'QF', bookUrl:'https://www.qantas.com' },
   { id:'lf3', from:'SYD', to:'PER', toCity:'Perth', airline:'Jetstar', price:198, avg:345, drop:43, departs:'Tomorrow 06:00', logo:'JQ', bookUrl:'https://www.jetstar.com' },
@@ -1754,32 +1778,88 @@ function renderStayCard(s, container) {
   container.appendChild(div);
 }
 
-function renderInspire(filter = 'weekend') {
+let _inspireType = 'flights';
+let _inspirePeriod = 'weekend';
+
+function switchInspireType(type) {
+  _inspireType = type;
+  const fb = document.getElementById('inspire-flights-btn');
+  const sb = document.getElementById('inspire-stays-btn');
+  fb.style.color = type === 'flights' ? 'var(--accent)' : 'var(--textDim)';
+  fb.style.borderBottomColor = type === 'flights' ? 'var(--accent)' : 'transparent';
+  sb.style.color = type === 'stays' ? 'var(--green)' : 'var(--textDim)';
+  sb.style.borderBottomColor = type === 'stays' ? 'var(--green)' : 'transparent';
+  renderInspire();
+}
+
+function renderInspire() {
   const list = document.getElementById('inspire-list');
   if (!list) return;
   list.innerHTML = '';
-  MOCK_INSPIRE.forEach((d, i) => {
-    const div = document.createElement('div');
-    div.className = 'inspire-card fade-in';
-    div.style.animationDelay = (i * 0.08) + 's';
-    div.innerHTML = `
-      <img class="inspire-img" src="${d.img}" alt="${d.city}" loading="lazy">
-      <div class="inspire-overlay"></div>
-      ${d.tag ? `<div class="inspire-badge">${d.tag}</div>` : ''}
-      <div class="inspire-content">
-        <div class="inspire-city">${d.city.toUpperCase()}</div>
-        <div class="inspire-country">${d.country}</div>
-        <div style="display:flex;align-items:flex-end;justify-content:space-between">
-          <div>
-            <div class="inspire-from">from</div>
-            <div class="inspire-price">$${d.price} AUD</div>
+
+  if (_inspireType === 'flights') {
+    MOCK_INSPIRE.forEach((d, i) => {
+      const div = document.createElement('div');
+      div.className = 'inspire-card fade-in';
+      div.style.animationDelay = (i * 0.08) + 's';
+      div.innerHTML = `
+        <img class="inspire-img" src="${d.img}" alt="${d.city}" loading="lazy">
+        <div class="inspire-overlay"></div>
+        ${d.tag ? `<div class="inspire-badge">${d.tag}</div>` : ''}
+        <div class="inspire-content">
+          <div class="inspire-city">${d.city.toUpperCase()}</div>
+          <div class="inspire-country">${d.country}</div>
+          <div style="display:flex;align-items:flex-end;justify-content:space-between">
+            <div>
+              <div class="inspire-from">from</div>
+              <div class="inspire-price">$${d.price} AUD</div>
+            </div>
+            ${d.drop > 0 ? `<div style="font-size:11px;color:var(--green);letter-spacing:1px">↓ ${d.drop}% below avg</div>` : ''}
           </div>
-          ${d.drop > 0 ? `<div style="font-size:11px;color:var(--green);letter-spacing:1px">↓ ${d.drop}% below avg</div>` : ''}
-        </div>
-      </div>`;
-    div.addEventListener('click', () => showInspireDetail(d));
-    list.appendChild(div);
-  });
+        </div>`;
+      div.addEventListener('click', () => showInspireDetail(d));
+      list.appendChild(div);
+    });
+  } else {
+    const stays = _inspirePeriod === 'anytime'
+      ? MOCK_INSPIRE_STAYS
+      : MOCK_INSPIRE_STAYS.filter(s => s.period === _inspirePeriod);
+
+    if (!stays.length) {
+      list.innerHTML = `<div class="empty"><div class="empty-title">NO STAYS FOUND</div><div class="empty-body" style="font-family:var(--sans);color:var(--textDim);font-size:13px;margin-top:8px;">Try a different time period.</div></div>`;
+      return;
+    }
+
+    stays.forEach((s, i) => {
+      const isGood = s.drop > 0;
+      const srcColor = s.source === 'airbnb' ? 'var(--red)' : 'var(--accent)';
+      const div = document.createElement('div');
+      div.className = 'inspire-card fade-in';
+      div.style.animationDelay = (i * 0.08) + 's';
+      div.style.height = '220px';
+      div.innerHTML = `
+        <img class="inspire-img" src="${s.img}" alt="${s.title}" loading="lazy">
+        <div class="inspire-overlay"></div>
+        ${s.tag ? `<div class="inspire-badge" style="background:${isGood ? 'var(--green)' : 'rgba(255,255,255,0.15)'};color:${isGood ? 'var(--bg0)' : '#fff'}">${s.tag}</div>` : ''}
+        <div style="position:absolute;top:12px;right:12px;padding:3px 8px;border-radius:4px;font-size:9px;letter-spacing:1px;background:rgba(0,0,0,0.6);color:${srcColor};border:1px solid ${srcColor};backdrop-filter:blur(4px);">${s.source === 'airbnb' ? 'AIRBNB' : 'BOOKING'}</div>
+        <div class="inspire-content">
+          <div class="inspire-city" style="font-size:18px;letter-spacing:1px;line-height:1.3;">${s.title}</div>
+          <div class="inspire-country">${s.location} · ${s.beds} bed · ${s.guests} guests</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
+            <div>
+              <div class="inspire-from">from</div>
+              <div class="inspire-price" style="color:var(--green);">$${s.price} <span style="font-size:13px;color:rgba(255,255,255,0.5)">/ night</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              ${isGood ? `<div style="font-size:11px;color:var(--green);letter-spacing:1px;">↓ ${s.drop}%</div>` : ''}
+              <button onclick="event.stopPropagation();window.open('${s.bookUrl}','_blank')" style="padding:8px 16px;border-radius:8px;background:${s.source === 'airbnb' ? 'var(--red)' : 'var(--accent)'};border:none;color:#fff;font-family:var(--display);font-size:15px;letter-spacing:1px;cursor:pointer;min-height:36px;">BOOK</button>
+            </div>
+          </div>
+        </div>`;
+      div.addEventListener('click', () => showStayDetail(JSON.stringify(s)));
+      list.appendChild(div);
+    });
+  }
 }
 
 function renderLastMinute() {
@@ -2453,10 +2533,45 @@ async function runWorkerTest() {
   const lbl = document.getElementById('worker-status-label');
   const btn = document.getElementById('test-worker-btn');
   dot.style.background = 'var(--amber)'; lbl.textContent = 'Testing…'; if(btn) btn.disabled = true;
+
   try {
-    const r = await fetch(url + '/health', { signal: AbortSignal.timeout(5000) });
-    STATE._workerOnline = r.ok;
-  } catch(e) { STATE._workerOnline = false; }
+    // Step 1 — check worker is reachable
+    const health = await fetch(url + '/health', { signal: AbortSignal.timeout(5000) });
+    if (!health.ok) throw new Error('Worker unreachable');
+
+    // Step 2 — check token is valid (ping a lightweight authenticated endpoint)
+    const token = getSecretToken();
+    if (token) {
+      const auth = await fetch(url + '/health', {
+        headers: { 'X-Roam-Token': token },
+        signal: AbortSignal.timeout(5000)
+      });
+      // Worker returns 200 for health regardless of token (health is public)
+      // so do a real token check with a POST to /api/ping
+      const ping = await fetch(url + '/api/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Roam-Token': token },
+        body: '{}',
+        signal: AbortSignal.timeout(5000)
+      });
+      // 401 = bad token, 404 = no ping route but token passed (still ok), anything else ok
+      if (ping.status === 401) {
+        STATE._workerOnline = false;
+        STATE._tokenError = true;
+        STATE._workerTested = true;
+        const dot2 = document.getElementById('worker-status-dot');
+        const lbl2 = document.getElementById('worker-status-label');
+        if(dot2) dot2.style.background = 'var(--red)';
+        if(lbl2) lbl2.textContent = 'Bad Token';
+        if(btn) { btn.style.borderColor='var(--red)'; btn.style.color='var(--red)'; btn.disabled = false; }
+        return;
+      }
+    }
+    STATE._workerOnline = true;
+    STATE._tokenError = false;
+  } catch(e) {
+    STATE._workerOnline = false;
+  }
   STATE._workerTested = true;
   if(btn) btn.disabled = false;
   updateWorkerStatusDot();

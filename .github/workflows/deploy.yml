@@ -20,7 +20,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-  # ── Deploy GitHub Pages (index.html) ──────────────────
+  # ── Deploy GitHub Pages (index.html only) ─────────────
   deploy-pages:
     name: Deploy Pages
     runs-on: ubuntu-latest
@@ -36,13 +36,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare pages directory
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp manifest.json _site/ 2>/dev/null || true
+          cp sw.js _site/ 2>/dev/null || true
+          cp -r icons _site/ 2>/dev/null || true
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
