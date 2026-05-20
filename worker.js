@@ -410,8 +410,11 @@ async function handleAI(request, env) {
 
   if (!query) return err('query required');
 
-  if (!env.ANTHROPIC_API_KEY) {
-    // Fallback: simple keyword parse
+  // Use per-request key from app Settings, fall back to Cloudflare secret
+  const apiKey = request.headers.get('X-Claude-Key') || env.ANTHROPIC_API_KEY;
+
+  if (!apiKey) {
+    // No key at all — simple keyword fallback
     return json(simpleAIParse(query, airport));
   }
 
@@ -420,7 +423,7 @@ async function handleAI(request, env) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': env.ANTHROPIC_API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({

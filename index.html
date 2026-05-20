@@ -1790,20 +1790,32 @@ hr.section-div {
             <div class="settings-row-icon" style="background:var(--accent-dim);">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             </div>
-            <div class="settings-row-label">Worker URL</div>
-            <div class="settings-row-value" id="setWorkerVal" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Not set</div>
-            <svg class="settings-row-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-          </div>
-          <div class="settings-row" style="cursor:default;" onclick="checkWorker()">
-            <div class="settings-row-icon" style="background:var(--bg3);">
-              <div id="workerStatusDot" style="width:10px;height:10px;border-radius:50%;background:var(--text2);"></div>
+            <div style="flex:1;min-width:0;">
+              <div class="settings-row-label">Worker URL</div>
+              <div id="setWorkerVal" style="font-size:11px;color:var(--text2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Not set</div>
             </div>
-            <div class="settings-row-label">Connection Status</div>
-            <div id="workerStatusLabel" style="font-size:12px;color:var(--text2);">Tap to test</div>
+            <button id="testWorkerBtn" onclick="event.stopPropagation();runWorkerTest()" style="margin-left:10px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);font-family:var(--font-mono);font-size:11px;letter-spacing:1px;cursor:pointer;white-space:nowrap;min-height:36px;flex-shrink:0;display:flex;align-items:center;gap:6px;">
+              <div id="workerStatusDot" style="width:7px;height:7px;border-radius:50%;background:var(--text2);flex-shrink:0;"></div>
+              <span id="workerStatusLabel">Test</span>
+            </button>
+            <svg class="settings-row-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px;flex-shrink:0;"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+          <div class="settings-row" onclick="editSetting('claudeKey')">
+            <div class="settings-row-icon" style="background:var(--amber-dim);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.5"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div class="settings-row-label">Anthropic API Key</div>
+              <div id="setClaudeVal" style="font-size:11px;color:var(--text2);margin-top:2px;font-family:var(--font-mono);">Not set</div>
+            </div>
+            <button onclick="event.stopPropagation();toggleClaudeVisibility()" id="claudeVisBtn" style="margin-left:10px;width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg id="claudeEyeIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+            <svg class="settings-row-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px;flex-shrink:0;"><path d="M9 18l6-6-6-6"/></svg>
           </div>
         </div>
         <div style="font-size:10px;color:var(--text2);letter-spacing:0.5px;line-height:1.7;padding:8px 4px 0;">
-          Paste your Cloudflare Worker URL (e.g. <span style="color:var(--accent);">https://roam.yourname.workers.dev</span>). API keys are stored securely in Cloudflare — not here.
+          Worker URL and Claude key are stored on this device only. All other API keys live securely in Cloudflare.
         </div>
       </div>
 
@@ -2062,6 +2074,7 @@ const S = {
   stayTypes: ['all'],
   theme: 'dark',
   workerUrl: '',
+  claudeKey: '',
   watchlist: { flights: [], stays: [] },
   priceHistory: {},
   searchType: 'flights',
@@ -2160,6 +2173,7 @@ function loadState() {
     S.stayTypes = JSON.parse(localStorage.getItem('roam_stay_types') || '["all"]');
     S.theme = localStorage.getItem('roam_theme') || 'dark';
     S.workerUrl = localStorage.getItem('roam_worker_url') || '';
+    S.claudeKey = localStorage.getItem('roam_claude_key') || '';
     S.watchlist = JSON.parse(localStorage.getItem('roam_watchlist') || '{"flights":[],"stays":[]}');
     S.priceHistory = JSON.parse(localStorage.getItem('roam_price_history') || '{}');
     if (S.theme === 'light') document.body.classList.add('light');
@@ -2178,6 +2192,7 @@ function saveState() {
   localStorage.setItem('roam_stay_types', JSON.stringify(S.stayTypes));
   localStorage.setItem('roam_theme', S.theme);
   localStorage.setItem('roam_worker_url', S.workerUrl || '');
+  localStorage.setItem('roam_claude_key', S.claudeKey || '');
   localStorage.setItem('roam_watchlist', JSON.stringify(S.watchlist));
   localStorage.setItem('roam_price_history', JSON.stringify(S.priceHistory));
 }
@@ -2205,6 +2220,17 @@ function syncUI() {
     } else {
       workerVal.textContent = 'Not set';
       workerVal.style.color = 'var(--text2)';
+    }
+  }
+  // Claude key
+  const claudeVal = document.getElementById('setClaudeVal');
+  if (claudeVal) {
+    if (S.claudeKey) {
+      claudeVal.textContent = maskKey(S.claudeKey);
+      claudeVal.style.color = 'var(--amber)';
+    } else {
+      claudeVal.textContent = 'Not set';
+      claudeVal.style.color = 'var(--text2)';
     }
   }
   updateWorkerStatus();
@@ -2246,15 +2272,36 @@ async function checkWorker() {
 function updateWorkerStatus() {
   const dot = document.getElementById('workerStatusDot');
   const lbl = document.getElementById('workerStatusLabel');
+  const btn = document.getElementById('testWorkerBtn');
   if (!dot || !lbl) return;
   const url = getWorkerUrl();
   if (!url) {
-    dot.style.background = 'var(--text2)'; lbl.textContent = 'Not set'; lbl.style.color = 'var(--text2)';
+    dot.style.background = 'var(--text2)';
+    lbl.textContent = 'Test';
+    if (btn) { btn.style.borderColor = 'var(--border)'; btn.style.color = 'var(--text1)'; }
   } else if (S.workerOnline) {
-    dot.style.background = 'var(--green)'; lbl.textContent = 'Connected ✓'; lbl.style.color = 'var(--green)';
+    dot.style.background = 'var(--green)';
+    lbl.textContent = 'Connected';
+    if (btn) { btn.style.borderColor = 'var(--green)'; btn.style.color = 'var(--green)'; }
   } else {
-    dot.style.background = 'var(--red)'; lbl.textContent = 'Unreachable'; lbl.style.color = 'var(--red)';
+    dot.style.background = 'var(--red)';
+    lbl.textContent = 'Failed';
+    if (btn) { btn.style.borderColor = 'var(--red)'; btn.style.color = 'var(--red)'; }
   }
+}
+
+async function runWorkerTest() {
+  const url = getWorkerUrl();
+  const dot = document.getElementById('workerStatusDot');
+  const lbl = document.getElementById('workerStatusLabel');
+  const btn = document.getElementById('testWorkerBtn');
+  if (!url) { editSetting('workerUrl'); return; }
+  // Loading state
+  dot.style.background = 'var(--amber)';
+  lbl.textContent = 'Testing…';
+  if (btn) { btn.style.borderColor = 'var(--amber)'; btn.style.color = 'var(--amber)'; btn.disabled = true; }
+  await checkWorker();
+  if (btn) btn.disabled = false;
 }
 
 // ═══ ONBOARDING ═══
@@ -2514,9 +2561,11 @@ async function runAISearch() {
   btn.style.opacity = '0.5';
   try {
     if (S.workerOnline) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (S.claudeKey) headers['X-Claude-Key'] = S.claudeKey;
       const res = await fetch(`${getWorkerUrl()}/api/ai`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ query: q, airport: S.airport, adults: S.adults, children: S.children })
       });
       if (res.ok) {
@@ -2883,34 +2932,40 @@ let activeSetting = null;
 
 function editSetting(key) {
   activeSetting = key;
-  const titles = { airport: 'HOME AIRPORT', currency: 'CURRENCY', workerUrl: 'WORKER URL' };
-  const vals = { airport: S.airportName, currency: S.currency, workerUrl: S.workerUrl };
-  const placeholders = { airport: 'City or airport code', currency: 'AUD, USD, GBP…', workerUrl: 'https://roam.yourname.workers.dev' };
+  const titles = { airport: 'HOME AIRPORT', currency: 'CURRENCY', workerUrl: 'WORKER URL', claudeKey: 'ANTHROPIC API KEY' };
+  const vals = { airport: S.airportName, currency: S.currency, workerUrl: S.workerUrl, claudeKey: S.claudeKey };
+  const placeholders = { airport: 'City or airport code', currency: 'AUD, USD, GBP…', workerUrl: 'https://roam.yourname.workers.dev', claudeKey: 'sk-ant-…' };
   document.getElementById('settingDialogTitle').textContent = titles[key] || key.toUpperCase();
   const inp = document.getElementById('settingInput');
   inp.value = vals[key] || '';
   inp.placeholder = placeholders[key] || '';
-  inp.type = key === 'workerUrl' ? 'url' : 'text';
+  inp.type = key === 'claudeKey' ? 'password' : key === 'workerUrl' ? 'url' : 'text';
   openDialog('settingDialog');
 }
 
 function saveSetting() {
   const val = document.getElementById('settingInput').value.trim();
-  if (!val && activeSetting !== 'workerUrl') { closeDialog('settingDialog'); return; }
   if (activeSetting === 'airport') {
+    if (!val) { closeDialog('settingDialog'); return; }
     S.airportName = val;
     S.airport = getAirportCode(val);
   } else if (activeSetting === 'currency') {
+    if (!val) { closeDialog('settingDialog'); return; }
     S.currency = val.toUpperCase().slice(0, 3);
   } else if (activeSetting === 'workerUrl') {
-    // Normalise — strip trailing slash, ensure https://
     let url = val.replace(/\/+$/, '');
     if (url && !url.startsWith('http')) url = 'https://' + url;
     S.workerUrl = url;
     saveState();
     syncUI();
     closeDialog('settingDialog');
-    if (url) checkWorker(); // test immediately
+    if (url) checkWorker();
+    return;
+  } else if (activeSetting === 'claudeKey') {
+    S.claudeKey = val;
+    saveState();
+    syncUI();
+    closeDialog('settingDialog');
     return;
   }
   saveState();
@@ -2983,8 +3038,28 @@ function importData() {
 
 function confirmReset() { openDialog('resetDialog'); }
 
+function maskKey(key) {
+  if (!key || key.length < 8) return '••••••••';
+  return key.slice(0, 8) + '••••••••' + key.slice(-4);
+}
+
+let claudeKeyVisible = false;
+function toggleClaudeVisibility() {
+  claudeKeyVisible = !claudeKeyVisible;
+  const el = document.getElementById('setClaudeVal');
+  const icon = document.getElementById('claudeEyeIcon');
+  if (!el) return;
+  if (claudeKeyVisible && S.claudeKey) {
+    el.textContent = S.claudeKey;
+    icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  } else {
+    el.textContent = S.claudeKey ? maskKey(S.claudeKey) : 'Not set';
+    icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  }
+}
+
 function doReset() {
-  const keys = ['roam_theme','roam_home_airport','roam_home_airport_name','roam_currency','roam_adults','roam_children','roam_bedrooms','roam_radius_hrs','roam_stay_types','roam_watchlist','roam_price_history','roam_onboarded','roam_worker_url'];
+  const keys = ['roam_theme','roam_home_airport','roam_home_airport_name','roam_currency','roam_adults','roam_children','roam_bedrooms','roam_radius_hrs','roam_stay_types','roam_watchlist','roam_price_history','roam_onboarded','roam_worker_url','roam_claude_key'];
   keys.forEach(k => localStorage.removeItem(k));
   closeDialog('resetDialog');
   location.reload();

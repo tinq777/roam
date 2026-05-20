@@ -7,8 +7,10 @@ compatibility_date = "2024-01-01"
 #   KIWI_API_KEY
 #   RAPIDAPI_KEY
 #   BOOKING_AFFILIATE_ID
-#   ANTHROPIC_API_KEY
 #   UNSPLASH_ACCESS_KEY
+#
+# Optional secrets:
+#   ANTHROPIC_API_KEY  ← only needed as fallback; app sends key from Settings per-request
 
 [env.production]
 name = "roam"
