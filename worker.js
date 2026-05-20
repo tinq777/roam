@@ -1,270 +1,392 @@
 /**
- * ROAM — Cloudflare Worker v1.0.0
- * API proxy for: Claude AI, Kiwi Tequila (flights), Airbnb (RapidAPI), Booking.com, Unsplash
+ * ROAM — Cloudflare Worker v2.0.0
  *
- * Environment variables to set in Cloudflare dashboard:
- *   ANTHROPIC_API_KEY     — from anthropic.com
- *   KIWI_API_KEY          — from tequila.kiwi.com
- *   RAPIDAPI_KEY          — from rapidapi.com (Airbnb API)
+ * Cloudflare Secrets (set in dashboard → roam-worker → Settings → Variables):
+ *   ROAM_SECRET_TOKEN     — any random string you choose, must match app Settings
+ *   IGNAV_API_KEY         — from ignav.com
+ *   SEARCHAPI_KEY         — from searchapi.io
+ *   RAPIDAPI_KEY          — from rapidapi.com (Airbnb)
  *   BOOKING_AFFILIATE_ID  — from booking.com affiliate program
  *   UNSPLASH_ACCESS_KEY   — from unsplash.com/developers
- *   ALLOWED_ORIGIN        — your frontend URL e.g. https://roam.yourdomain.com
+ *   ANTHROPIC_API_KEY     — optional fallback if not set in app Settings
  */
 
-const CORS = (origin) => ({
-  'Access-Control-Allow-Origin': origin || '*',
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Content-Type': 'application/json',
-});
+  'Access-Control-Allow-Headers': 'Content-Type, X-Roam-Token, X-Claude-Key',
+};
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+  });
+}
+
+function unauthorized() {
+  return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    status: 401,
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+  });
+}
+
+function isAuthorized(request, env) {
+  // If no token is configured, allow all (backwards compat during setup)
+  if (!env.ROAM_SECRET_TOKEN) return true;
+  const token = request.headers.get('X-Roam-Token');
+  return token === env.ROAM_SECRET_TOKEN;
+}
 
 export default {
   async fetch(request, env) {
-    const origin = request.headers.get('Origin') || '*';
-    const allowed = env.ALLOWED_ORIGIN || '*';
-
-    // CORS preflight
+    // CORS preflight — no auth needed
     if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: CORS(allowed) });
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // Health check — no auth needed (used by Test button)
+    if (path === '/health' || path === '/api/health') {
+      return json({ status: 'ok', version: '2.0.0', app: 'ROAM' });
+    }
+
+    // All other routes require token
+    if (!isAuthorized(request, env)) {
+      return unauthorized();
+    }
+
     try {
-      // ── AI SEARCH ──────────────────────────────────────────────────
-      if (path === '/api/ai' && request.method === 'POST') {
-        const body = await request.json();
-        const { query, type, homeAirport, adults, children } = body;
-
-        const systemPrompt = `You are ROAM's travel AI assistant. The user's home airport is ${homeAirport}. Default travellers: ${adults} adults, ${children} children. 
-        Help them find the best ${type === 'flights' ? 'flight' : 'accommodation'} deals. Be concise, specific, and actionable. 
-        Suggest real destinations, realistic price ranges, and best timing. Format your response in plain text, no markdown.`;
-
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': env.ANTHROPIC_API_KEY,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 1000,
-            system: systemPrompt,
-            messages: [{ role: 'user', content: query }],
-          }),
-        });
-
-        const data = await response.json();
-        const result = data.content?.[0]?.text || 'No response from AI.';
-        return new Response(JSON.stringify({ result }), { headers: CORS(allowed) });
-      }
-
-      // ── FLIGHT SEARCH (Kiwi Tequila) ───────────────────────────────
+      // ── FLIGHTS ── Ignav + SearchAPI in parallel ──────────────────────
       if (path === '/api/flights' && request.method === 'POST') {
-        const body = await request.json();
-        const { from, to, dateFrom, dateTo, adults = 2, children = 2 } = body;
-
-        const params = new URLSearchParams({
-          fly_from: from,
-          fly_to: to || 'anywhere',
-          date_from: dateFrom,
-          date_to: dateTo,
-          adults,
-          children,
-          curr: 'AUD',
-          locale: 'en',
-          limit: 10,
-          sort: 'price',
-          max_stopovers: 2,
-        });
-
-        const response = await fetch(`https://api.tequila.kiwi.com/v2/search?${params}`, {
-          headers: { apikey: env.KIWI_API_KEY },
-        });
-
-        const data = await response.json();
-        const flights = (data.data || []).map(f => ({
-          id: f.id,
-          from: f.flyFrom,
-          to: f.flyTo,
-          dest: f.cityTo,
-          country: f.countryTo?.name,
-          price: Math.round(f.price),
-          airline: f.airlines?.[0] || 'Unknown',
-          duration: formatDuration(f.duration?.total),
-          stops: f.route?.length - 1 === 0 ? 'Direct' : `${f.route.length - 1} stop${f.route.length > 2 ? 's' : ''}`,
-          depart: formatTime(f.dTime),
-          url: f.deep_link,
-          bookingToken: f.booking_token,
-        }));
-
-        return new Response(JSON.stringify({ flights }), { headers: CORS(allowed) });
+        return handleFlights(request, env);
       }
 
-      // ── LAST MINUTE FLIGHTS (Kiwi) ─────────────────────────────────
-      if (path === '/api/lastminute/flights' && request.method === 'GET') {
-        const from = url.searchParams.get('from') || 'SYD';
-        const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-        const dayAfter = new Date(); dayAfter.setDate(dayAfter.getDate() + 2);
-        const fmt = d => d.toLocaleDateString('en-GB').split('/').reverse().join('/').replace(/\//g, '/');
-
-        const params = new URLSearchParams({
-          fly_from: from,
-          fly_to: 'anywhere',
-          date_from: fmt(new Date()),
-          date_to: fmt(dayAfter),
-          curr: 'AUD',
-          limit: 8,
-          sort: 'price',
-          one_for_city: 1,
-        });
-
-        const response = await fetch(`https://api.tequila.kiwi.com/v2/search?${params}`, {
-          headers: { apikey: env.KIWI_API_KEY },
-        });
-
-        const data = await response.json();
-        return new Response(JSON.stringify({ flights: data.data || [] }), { headers: CORS(allowed) });
+      // ── LAST MINUTE FLIGHTS ──────────────────────────────────────────
+      if (path === '/api/lastminute/flights') {
+        return handleLastMinute(request, env, url);
       }
 
-      // ── STAYS SEARCH (Airbnb via RapidAPI) ─────────────────────────
-      if (path === '/api/stays/airbnb' && request.method === 'POST') {
-        const body = await request.json();
-        const { location, checkin, checkout, adults = 2, children = 2, bedrooms = 2 } = body;
-
-        const response = await fetch(
-          `https://airbnb13.p.rapidapi.com/search-location?location=${encodeURIComponent(location)}&checkin=${checkin}&checkout=${checkout}&adults=${adults}&children=${children}&rooms=${bedrooms}&currency=AUD`,
-          {
-            headers: {
-              'X-RapidAPI-Key': env.RAPIDAPI_KEY,
-              'X-RapidAPI-Host': 'airbnb13.p.rapidapi.com',
-            },
-          }
-        );
-
-        const data = await response.json();
-        const stays = (data.results || [])
-          .filter(s => s.type !== 'PRIVATE_ROOM' && s.type !== 'SHARED_ROOM')
-          .map(s => ({
-            id: 'ab_' + s.id,
-            title: s.name,
-            dest: location,
-            price: Math.round(s.price?.rate || 0),
-            beds: s.bedrooms || bedrooms,
-            guests: (s.persons || (adults + children)),
-            rating: s.rating,
-            img: s.images?.[0],
-            url: `https://www.airbnb.com.au/rooms/${s.id}`,
-            source: 'airbnb',
-          }));
-
-        return new Response(JSON.stringify({ stays }), { headers: CORS(allowed) });
+      // ── INSPIRE ──────────────────────────────────────────────────────
+      if (path === '/api/inspire') {
+        return handleInspire(request, env, url);
       }
 
-      // ── STAYS SEARCH (Booking.com Affiliate) ───────────────────────
-      if (path === '/api/stays/booking' && request.method === 'POST') {
-        const body = await request.json();
-        const { location, checkin, checkout, adults = 2, children = 2, rooms = 1 } = body;
-
-        // Booking.com affiliate search URL builder
-        const params = new URLSearchParams({
-          ss: location,
-          checkin_year: checkin.split('-')[0],
-          checkin_month: checkin.split('-')[1],
-          checkin_monthday: checkin.split('-')[2],
-          checkout_year: checkout.split('-')[0],
-          checkout_month: checkout.split('-')[1],
-          checkout_monthday: checkout.split('-')[2],
-          group_adults: adults,
-          group_children: children,
-          no_rooms: rooms,
-          selected_currency: 'AUD',
-          aid: env.BOOKING_AFFILIATE_ID || '304142',
-        });
-
-        // Return search URL (affiliate link) — Booking.com API requires separate setup
-        const searchUrl = `https://www.booking.com/searchresults.html?${params}`;
-        return new Response(JSON.stringify({ searchUrl, note: 'Booking.com affiliate link' }), { headers: CORS(allowed) });
+      // ── STAYS — Airbnb + Booking in parallel ─────────────────────────
+      if (path === '/api/stays' && request.method === 'POST') {
+        return handleStays(request, env);
       }
 
-      // ── DESTINATION PHOTO (Unsplash) ───────────────────────────────
-      if (path === '/api/photo' && request.method === 'GET') {
-        const query = url.searchParams.get('q') || 'travel';
-        const response = await fetch(
-          `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=landscape&content_filter=high`,
-          { headers: { Authorization: `Client-ID ${env.UNSPLASH_ACCESS_KEY}` } }
-        );
-        const data = await response.json();
-        return new Response(JSON.stringify({
-          url: data.urls?.regular,
-          thumb: data.urls?.small,
-          credit: data.user?.name,
-          creditUrl: data.user?.links?.html,
-        }), { headers: CORS(allowed) });
+      // ── PHOTO ────────────────────────────────────────────────────────
+      if (path === '/api/photo') {
+        return handlePhoto(request, env, url);
       }
 
-      // ── INSPIRE (cheapest destinations from home) ──────────────────
-      if (path === '/api/inspire' && request.method === 'GET') {
-        const from = url.searchParams.get('from') || 'SYD';
-        const period = url.searchParams.get('period') || 'weekend'; // weekend | month
-
-        const today = new Date();
-        let dateFrom, dateTo;
-        if (period === 'weekend') {
-          const fri = new Date(today); fri.setDate(today.getDate() + (5 - today.getDay() + 7) % 7 || 7);
-          const sun = new Date(fri); sun.setDate(fri.getDate() + 2);
-          dateFrom = fri.toLocaleDateString('en-GB').split('/').join('/');
-          dateTo = sun.toLocaleDateString('en-GB').split('/').join('/');
-        } else {
-          const next = new Date(today); next.setDate(today.getDate() + 30);
-          const end = new Date(today); end.setDate(today.getDate() + 60);
-          dateFrom = next.toLocaleDateString('en-GB').split('/').join('/');
-          dateTo = end.toLocaleDateString('en-GB').split('/').join('/');
-        }
-
-        const params = new URLSearchParams({
-          fly_from: from,
-          fly_to: 'anywhere',
-          date_from: dateFrom,
-          date_to: dateTo,
-          curr: 'AUD',
-          limit: 6,
-          sort: 'price',
-          one_for_city: 1,
-          max_stopovers: 1,
-        });
-
-        const response = await fetch(`https://api.tequila.kiwi.com/v2/search?${params}`, {
-          headers: { apikey: env.KIWI_API_KEY },
-        });
-        const data = await response.json();
-        return new Response(JSON.stringify({ destinations: data.data || [] }), { headers: CORS(allowed) });
+      // ── AI ───────────────────────────────────────────────────────────
+      if (path === '/api/ai' && request.method === 'POST') {
+        return handleAI(request, env);
       }
 
-      // ── HEALTH CHECK ────────────────────────────────────────────────
-      if (path === '/api/health') {
-        return new Response(JSON.stringify({ status: 'ok', version: '1.0.0', ts: Date.now() }), { headers: CORS(allowed) });
-      }
-
-      return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: CORS(allowed) });
+      return json({ error: 'Not found' }, 404);
 
     } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: CORS(allowed) });
+      return json({ error: err.message }, 500);
     }
   },
 };
 
-// ── HELPERS ─────────────────────────────────────────────────────────
-function formatDuration(seconds) {
-  if (!seconds) return '—';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return `${h}h ${m}m`;
+// ════════════════════════════════════════════════════════════
+// FLIGHTS — Ignav + SearchAPI in parallel, merged by price
+// ════════════════════════════════════════════════════════════
+async function handleFlights(request, env) {
+  const body = await request.json();
+  const { from = 'SYD', to, depart, ret, adults = 2, children = 2 } = body;
+
+  const [ignavResult, searchApiResult] = await Promise.allSettled([
+    fetchIgnav(from, to, depart, ret, adults, children, env),
+    fetchSearchApi(from, to, depart, ret, adults, children, env),
+  ]);
+
+  const ignavFlights  = ignavResult.status === 'fulfilled' ? ignavResult.value : [];
+  const searchFlights = searchApiResult.status === 'fulfilled' ? searchApiResult.value : [];
+
+  // Merge, deduplicate by route+price, sort by price
+  const seen = new Set();
+  const merged = [...ignavFlights, ...searchFlights]
+    .filter(f => {
+      const key = `${f.from}-${f.to}-${f.price}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => a.price - b.price);
+
+  const source = [
+    ignavFlights.length  ? 'Ignav'     : null,
+    searchFlights.length ? 'SearchAPI' : null,
+  ].filter(Boolean).join(' + ') || 'none';
+
+  return json({ flights: merged, source });
 }
 
-function formatTime(unix) {
-  if (!unix) return '—';
-  return new Date(unix * 1000).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false });
+async function fetchIgnav(from, to, depart, ret, adults, children, env) {
+  if (!env.IGNAV_API_KEY) return [];
+  try {
+    const endpoint = ret ? 'round-trip' : 'one-way';
+    const body = {
+      origin: from,
+      destination: to || 'anywhere',
+      departure_date: depart,
+      ...(ret ? { return_date: ret } : {}),
+      adults: parseInt(adults),
+      children: parseInt(children),
+      cabin_class: 'economy',
+      currency: 'AUD',
+    };
+    const r = await fetch(`https://ignav.com/api/fares/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': env.IGNAV_API_KEY },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) return [];
+    const data = await r.json();
+    return (data.itineraries || []).map(f => ({
+      id: 'ig_' + (f.ignav_id || Math.random().toString(36).slice(2)),
+      from: f.outbound?.segments?.[0]?.departure_airport || from,
+      to: f.outbound?.segments?.at(-1)?.arrival_airport || to,
+      dest: f.outbound?.segments?.at(-1)?.arrival_airport || to,
+      price: Math.round(f.price?.amount || 0),
+      airline: f.outbound?.segments?.[0]?.operating_carrier_name || 'Unknown',
+      duration: formatMins(f.outbound?.duration_minutes),
+      stops: stopsLabel(f.outbound?.segments?.length),
+      depart: f.outbound?.segments?.[0]?.departure_time_local?.slice(0,16) || depart,
+      url: `https://ignav.com/book/${f.ignav_id}`,
+      source: 'ignav',
+    }));
+  } catch (e) { return []; }
+}
+
+async function fetchSearchApi(from, to, depart, ret, adults, children, env) {
+  if (!env.SEARCHAPI_KEY) return [];
+  try {
+    const params = new URLSearchParams({
+      engine: 'google_flights',
+      departure_id: from,
+      arrival_id: to || '',
+      outbound_date: depart || '',
+      ...(ret ? { return_date: ret } : { type: '2' }), // type 2 = one-way
+      adults: String(adults),
+      children: String(children),
+      currency: 'AUD',
+      api_key: env.SEARCHAPI_KEY,
+    });
+    const r = await fetch(`https://www.searchapi.io/api/v1/search?${params}`);
+    if (!r.ok) return [];
+    const data = await r.json();
+    const raw = [...(data.best_flights || []), ...(data.other_flights || [])];
+    return raw.map((f, i) => ({
+      id: 'sa_' + i,
+      from: f.flights?.[0]?.departure_airport?.id || from,
+      to: f.flights?.at(-1)?.arrival_airport?.id || to,
+      dest: f.flights?.at(-1)?.arrival_airport?.name || to,
+      price: Math.round(f.price || 0),
+      airline: f.flights?.[0]?.airline || 'Unknown',
+      duration: formatMins(f.total_duration),
+      stops: stopsLabel(f.flights?.length),
+      depart: f.flights?.[0]?.departure_airport?.time || depart,
+      url: 'https://flights.google.com',
+      source: 'searchapi',
+    }));
+  } catch (e) { return []; }
+}
+
+// ════════════════════════════════════════════════════════════
+// LAST MINUTE — parallel Ignav + SearchAPI, depart today/tomorrow
+// ════════════════════════════════════════════════════════════
+async function handleLastMinute(request, env, url) {
+  const from = url.searchParams.get('from') || 'SYD';
+  const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+  const [r1, r2] = await Promise.allSettled([
+    fetchIgnav(from, '', today, '', 2, 2, env),
+    fetchSearchApi(from, '', today, '', 2, 2, env),
+  ]);
+
+  const seen = new Set();
+  const merged = [
+    ...(r1.status === 'fulfilled' ? r1.value : []),
+    ...(r2.status === 'fulfilled' ? r2.value : []),
+  ].filter(f => {
+    const key = `${f.from}-${f.to}-${f.price}`;
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  }).sort((a, b) => a.price - b.price);
+
+  return json({ flights: merged });
+}
+
+// ════════════════════════════════════════════════════════════
+// INSPIRE — cheapest destinations from home airport
+// ════════════════════════════════════════════════════════════
+async function handleInspire(request, env, url) {
+  const from = url.searchParams.get('from') || 'SYD';
+  const period = url.searchParams.get('period') || 'weekend';
+
+  const today = new Date();
+  let depart, ret;
+  if (period === 'weekend') {
+    const daysUntilFri = (5 - today.getDay() + 7) % 7 || 7;
+    const fri = new Date(today); fri.setDate(today.getDate() + daysUntilFri);
+    const sun = new Date(fri); sun.setDate(fri.getDate() + 2);
+    depart = fri.toISOString().split('T')[0];
+    ret = sun.toISOString().split('T')[0];
+  } else {
+    const d = new Date(today); d.setDate(today.getDate() + 30);
+    const r = new Date(today); r.setDate(today.getDate() + 37);
+    depart = d.toISOString().split('T')[0];
+    ret = r.toISOString().split('T')[0];
+  }
+
+  const [r1, r2] = await Promise.allSettled([
+    fetchIgnav(from, '', depart, ret, 2, 2, env),
+    fetchSearchApi(from, '', depart, ret, 2, 2, env),
+  ]);
+
+  const seen = new Set();
+  const destinations = [
+    ...(r1.status === 'fulfilled' ? r1.value : []),
+    ...(r2.status === 'fulfilled' ? r2.value : []),
+  ].filter(f => {
+    if (!f.to || seen.has(f.to)) return false;
+    seen.add(f.to); return true;
+  }).sort((a, b) => a.price - b.price).slice(0, 8);
+
+  return json({ destinations });
+}
+
+// ════════════════════════════════════════════════════════════
+// STAYS — Airbnb + Booking in parallel
+// ════════════════════════════════════════════════════════════
+async function handleStays(request, env) {
+  const body = await request.json();
+  const { location, checkin, checkout, adults = 2, children = 2, bedrooms = 2 } = body;
+
+  const [airbnbResult, bookingResult] = await Promise.allSettled([
+    fetchAirbnb(location, checkin, checkout, adults, children, bedrooms, env),
+    fetchBooking(location, checkin, checkout, adults, children, bedrooms, env),
+  ]);
+
+  const airbnb  = airbnbResult.status === 'fulfilled'  ? airbnbResult.value  : [];
+  const booking = bookingResult.status === 'fulfilled' ? bookingResult.value : [];
+
+  const merged = [...airbnb, ...booking].sort((a, b) => a.price - b.price);
+  return json({ stays: merged });
+}
+
+async function fetchAirbnb(location, checkin, checkout, adults, children, bedrooms, env) {
+  if (!env.RAPIDAPI_KEY) return [];
+  try {
+    const r = await fetch(
+      `https://airbnb13.p.rapidapi.com/search-location?location=${encodeURIComponent(location)}&checkin=${checkin}&checkout=${checkout}&adults=${adults}&children=${children}&rooms=${bedrooms}&currency=AUD`,
+      { headers: { 'X-RapidAPI-Key': env.RAPIDAPI_KEY, 'X-RapidAPI-Host': 'airbnb13.p.rapidapi.com' } }
+    );
+    if (!r.ok) return [];
+    const data = await r.json();
+    return (data.results || [])
+      .filter(s => s.type !== 'PRIVATE_ROOM' && s.type !== 'SHARED_ROOM')
+      .map(s => ({
+        id: 'ab_' + s.id,
+        title: s.name,
+        dest: location,
+        price: Math.round(s.price?.rate || 0),
+        beds: s.bedrooms || bedrooms,
+        guests: s.persons || (parseInt(adults) + parseInt(children)),
+        rating: s.rating,
+        img: s.images?.[0],
+        url: `https://www.airbnb.com.au/rooms/${s.id}`,
+        source: 'airbnb',
+      }));
+  } catch (e) { return []; }
+}
+
+async function fetchBooking(location, checkin, checkout, adults, children, bedrooms, env) {
+  // Booking.com affiliate deep link
+  const [cy, cm, cd] = checkin.split('-');
+  const [oy, om, od] = checkout.split('-');
+  const params = new URLSearchParams({
+    ss: location,
+    checkin_year: cy, checkin_month: cm, checkin_monthday: cd,
+    checkout_year: oy, checkout_month: om, checkout_monthday: od,
+    group_adults: adults,
+    group_children: children,
+    no_rooms: Math.max(1, Math.ceil(bedrooms / 2)),
+    selected_currency: 'AUD',
+    aid: env.BOOKING_AFFILIATE_ID || '304142',
+    nflt: 'entire_place%3D1', // entire homes only
+  });
+  return [{
+    id: 'bk_link',
+    title: `Entire homes in ${location}`,
+    dest: location,
+    price: 0,
+    isLink: true,
+    url: `https://www.booking.com/searchresults.html?${params}`,
+    source: 'booking',
+  }];
+}
+
+// ════════════════════════════════════════════════════════════
+// PHOTO — Unsplash
+// ════════════════════════════════════════════════════════════
+async function handlePhoto(request, env, url) {
+  if (!env.UNSPLASH_ACCESS_KEY) return json({ url: null });
+  const q = url.searchParams.get('q') || 'travel destination';
+  try {
+    const r = await fetch(
+      `https://api.unsplash.com/photos/random?query=${encodeURIComponent(q)}&orientation=landscape&content_filter=high`,
+      { headers: { Authorization: `Client-ID ${env.UNSPLASH_ACCESS_KEY}` } }
+    );
+    const data = await r.json();
+    return json({ url: data.urls?.regular, thumb: data.urls?.small, credit: data.user?.name });
+  } catch (e) { return json({ url: null }); }
+}
+
+// ════════════════════════════════════════════════════════════
+// AI — Claude (key from app header or Cloudflare secret)
+// ════════════════════════════════════════════════════════════
+async function handleAI(request, env) {
+  const body = await request.json();
+  const { query, type, homeAirport, adults, children } = body;
+  const apiKey = request.headers.get('X-Claude-Key') || env.ANTHROPIC_API_KEY;
+  if (!apiKey) return json({ error: 'No Claude API key configured' }, 401);
+
+  const system = `You are ROAM's travel AI. Home airport: ${homeAirport}. Party: ${adults} adults, ${children} children.
+Help find ${type === 'flights' ? 'flight' : 'accommodation'} deals. Be concise and specific. Plain text only, no markdown.`;
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 500, system, messages: [{ role: 'user', content: query }] }),
+    });
+    const data = await r.json();
+    return json({ result: data.content?.[0]?.text || 'No response.' });
+  } catch (e) { return json({ error: e.message }, 500); }
+}
+
+// ════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════
+function formatMins(mins) {
+  if (!mins) return '—';
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
+function stopsLabel(segments) {
+  const n = (segments || 1) - 1;
+  if (n <= 0) return 'Direct';
+  return `${n} stop${n > 1 ? 's' : ''}`;
 }

@@ -1158,6 +1158,21 @@ body.light{
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--textDim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </div>
             </div>
+            <div class="settings-row" onclick="editApiSetting('secretToken')">
+              <div class="settings-row-left">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--textSecondary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                <div>
+                  <div class="settings-label">Secret Token</div>
+                  <div id="set-secret-token" style="font-size:11px;color:var(--textDim);margin-top:1px;font-family:var(--mono);">Not set</div>
+                </div>
+              </div>
+              <div class="settings-row-right">
+                <button onclick="event.stopPropagation();toggleTokenVisibility()" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--textSecondary);cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                  <svg id="token-eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--textDim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+            </div>
             <div class="settings-row" onclick="editApiSetting('claudeKey')">
               <div class="settings-row-left">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--textSecondary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
@@ -1174,7 +1189,7 @@ body.light{
               </div>
             </div>
           </div>
-          <div style="padding:8px 20px 0;font-size:10px;color:var(--textDim);line-height:1.7;">Worker URL and Claude key stored on this device only. All other API keys live in Cloudflare.</div>
+          <div style="padding:8px 20px 0;font-size:10px;color:var(--textDim);line-height:1.7;">Worker URL, Secret Token and Claude key stored on this device only. All other API keys live in Cloudflare.</div>
         </div>
 
         <div class="settings-section">
@@ -1372,6 +1387,7 @@ body.light{
 const APP_VERSION = '1.0.0';
 function getWorkerUrl() { return STATE.workerUrl || localStorage.getItem('roam_worker_url') || ''; }
 function getClaudeKey() { return STATE.claudeKey || localStorage.getItem('roam_claude_key') || ''; }
+function getSecretToken() { return STATE.secretToken || localStorage.getItem('roam_secretToken') || ''; }
 
 const DEFAULT_STATE = {
   theme: 'dark',
@@ -1385,6 +1401,7 @@ const DEFAULT_STATE = {
   onboarded: false,
   workerUrl: '',
   claudeKey: '',
+  secretToken: '',
   watchlist: { flights: [], stays: [] },
   priceHistory: {}
 };
@@ -1392,7 +1409,7 @@ const DEFAULT_STATE = {
 let STATE = {};
 
 function loadState() {
-  const keys = ['theme','airport','currency','adults','children','bedrooms','radius','stayTypes','onboarded','workerUrl','claudeKey','watchlist','priceHistory'];
+  const keys = ['theme','airport','currency','adults','children','bedrooms','radius','stayTypes','onboarded','workerUrl','claudeKey','secretToken','watchlist','priceHistory'];
   keys.forEach(k => {
     const raw = localStorage.getItem('roam_' + k);
     if (raw !== null) {
@@ -1864,7 +1881,7 @@ async function searchFlights() {
     if (!workerUrl) throw new Error('No worker URL');
     const resp = await fetch(workerUrl + '/api/flights', {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','X-Roam-Token':getSecretToken()},
       body: JSON.stringify({ from, to, depart: document.getElementById('fs-depart').value, return: document.getElementById('fs-return').value, adults: STATE.adults, children: STATE.children, aiQuery })
     });
     if (!resp.ok) throw new Error('API error');
@@ -1887,7 +1904,7 @@ async function searchStays() {
     if (!workerUrl) throw new Error('No worker URL');
     const resp = await fetch(workerUrl + '/api/stays', {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','X-Roam-Token':getSecretToken()},
       body: JSON.stringify({ destination: document.getElementById('ss-dest').value, checkin: document.getElementById('ss-checkin').value, checkout: document.getElementById('ss-checkout').value, guests: STATE.adults + STATE.children, bedrooms: STATE.bedrooms })
     });
     if (!resp.ok) throw new Error('API error');
@@ -2359,6 +2376,13 @@ function syncApiUI() {
     workerEl.textContent = url ? url.replace('https://','') : 'Not set';
     workerEl.style.color = url ? 'var(--accent)' : 'var(--textDim)';
   }
+  // Secret token display
+  const tokenEl = document.getElementById('set-secret-token');
+  if (tokenEl) {
+    const tok = getSecretToken();
+    tokenEl.textContent = tok ? maskApiKey(tok) : 'Not set';
+    tokenEl.style.color = tok ? 'var(--green)' : 'var(--textDim)';
+  }
   // Claude key display
   const claudeEl = document.getElementById('set-claude-key');
   if (claudeEl) {
@@ -2371,7 +2395,23 @@ function syncApiUI() {
 
 function maskApiKey(key) {
   if (!key || key.length < 8) return '••••••••';
-  return key.slice(0, 8) + '••••••••' + key.slice(-4);
+  return key.slice(0, 4) + '••••••••' + key.slice(-4);
+}
+
+let _tokenVisible = false;
+function toggleTokenVisibility() {
+  _tokenVisible = !_tokenVisible;
+  const el = document.getElementById('set-secret-token');
+  const icon = document.getElementById('token-eye-icon');
+  const tok = getSecretToken();
+  if (!el) return;
+  if (_tokenVisible && tok) {
+    el.textContent = tok;
+    icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  } else {
+    el.textContent = tok ? maskApiKey(tok) : 'Not set';
+    icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  }
 }
 
 function toggleClaudeVisibility() {
@@ -2424,14 +2464,14 @@ async function runWorkerTest() {
 
 function editApiSetting(key) {
   _apiSettingKey = key;
-  const titles = { workerUrl: 'WORKER URL', claudeKey: 'ANTHROPIC API KEY' };
-  const vals = { workerUrl: getWorkerUrl(), claudeKey: getClaudeKey() };
-  const placeholders = { workerUrl: 'https://roam.yourname.workers.dev', claudeKey: 'sk-ant-…' };
+  const titles = { workerUrl: 'WORKER URL', secretToken: 'SECRET TOKEN', claudeKey: 'ANTHROPIC API KEY' };
+  const vals = { workerUrl: getWorkerUrl(), secretToken: getSecretToken(), claudeKey: getClaudeKey() };
+  const placeholders = { workerUrl: 'https://roam-worker.yourname.workers.dev', secretToken: 'any-random-string-you-choose', claudeKey: 'sk-ant-…' };
   document.getElementById('api-dialog-title').textContent = titles[key];
   const inp = document.getElementById('api-dialog-input');
   inp.value = vals[key] || '';
   inp.placeholder = placeholders[key];
-  inp.type = key === 'claudeKey' ? 'password' : 'url';
+  inp.type = (key === 'claudeKey' || key === 'secretToken') ? 'password' : 'url';
   document.getElementById('api-dialog').classList.add('open');
 }
 
@@ -2443,6 +2483,9 @@ function saveApiSetting() {
     saveState('workerUrl', url);
     STATE._workerOnline = false; STATE._workerTested = false;
     if (url) setTimeout(runWorkerTest, 300);
+  } else if (_apiSettingKey === 'secretToken') {
+    saveState('secretToken', val);
+    _tokenVisible = false;
   } else if (_apiSettingKey === 'claudeKey') {
     saveState('claudeKey', val);
     _claudeVisible = false;
