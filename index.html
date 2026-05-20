@@ -1557,105 +1557,152 @@ hr.section-div {
     </div>
 
     <!-- Search Tab -->
-    <div id="huntSearch" class="scroll-area">
-      <div class="ai-bar">
-        <input type="text" id="aiInput" placeholder="Ask AI: 'Cheap beach getaway next month'…" style="font-size:16px!important;">
-        <button class="ai-bar-btn" onclick="runAISearch()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    <div id="huntSearch" class="scroll-area" style="padding:0;">
+
+      <!-- Type Toggle — fixed at top of scroll area -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--border);background:var(--bg0);flex-shrink:0;">
+        <button id="searchFlightsBtn" onclick="switchSearchType('flights')" style="padding:14px;background:none;border:none;border-bottom:2px solid var(--accent);color:var(--accent);font-family:var(--font-mono);font-size:11px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>
+          FLIGHTS
+        </button>
+        <button id="searchStaysBtn" onclick="switchSearchType('stays')" style="padding:14px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);font-family:var(--font-mono);font-size:11px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          STAYS
         </button>
       </div>
 
-      <!-- Sub-tabs: Flights / Stays -->
-      <div style="display:flex;gap:4px;margin-bottom:16px;">
-        <button class="pill active" id="searchFlightsBtn" onclick="switchSearchType('flights')" style="flex:1;text-align:center;">✈ Flights</button>
-        <button class="pill" id="searchStaysBtn" onclick="switchSearchType('stays')" style="flex:1;text-align:center;">🏠 Stays</button>
-      </div>
-
       <!-- Flights Form -->
-      <div id="flightForm">
-        <div class="airport-row-form">
-          <div class="form-field">
+      <div id="flightForm" style="padding:20px;">
+
+        <!-- AI bar -->
+        <div style="position:relative;margin-bottom:20px;">
+          <input type="text" id="aiInput" placeholder="✦ Ask AI: e.g. cheap flights to Bali in August…" style="font-size:16px!important;padding-right:48px;background:var(--bg2);border-color:var(--accent);border-width:1px;">
+          <button onclick="runAISearch()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:8px;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#04080f" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          </button>
+        </div>
+
+        <!-- From / To -->
+        <div style="display:grid;grid-template-columns:1fr 44px 1fr;gap:8px;align-items:flex-end;margin-bottom:16px;">
+          <div>
             <label class="form-label">From</label>
-            <input type="text" id="fFrom" value="SYD — Sydney" style="font-size:16px!important;">
+            <input type="text" id="fFrom" value="SYD" style="font-size:16px!important;text-align:center;font-family:var(--font-display);font-size:22px!important;letter-spacing:2px;color:var(--text0);">
           </div>
-          <button class="swap-btn" onclick="swapAirports()" title="Swap">
+          <button onclick="swapAirports()" style="width:44px;height:44px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--accent);cursor:pointer;display:flex;align-items:center;justify-content:center;margin-bottom:1px;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>
           </button>
-          <div class="form-field">
+          <div>
             <label class="form-label">To</label>
-            <input type="text" id="fTo" placeholder="Any destination" style="font-size:16px!important;">
+            <input type="text" id="fTo" placeholder="Where?" style="font-size:16px!important;text-align:center;font-family:var(--font-display);font-size:22px!important;letter-spacing:2px;">
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-field" style="margin:0;">
+
+        <!-- Dates -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+          <div>
             <label class="form-label">Depart</label>
             <input type="date" id="fDepart" style="font-size:16px!important;">
           </div>
-          <div class="form-field" style="margin:0;">
+          <div>
             <label class="form-label">Return</label>
             <input type="date" id="fReturn" style="font-size:16px!important;">
           </div>
         </div>
-        <div style="margin-top:10px;">
-          <label class="form-label">Cabin Class</label>
-          <div class="class-pills">
-            <div class="pill active" data-class="economy" onclick="selectClass(this)">Economy</div>
-            <div class="pill" data-class="premium" onclick="selectClass(this)">Premium Eco</div>
-            <div class="pill" data-class="business" onclick="selectClass(this)">Business</div>
-            <div class="pill" data-class="first" onclick="selectClass(this)">First</div>
-          </div>
-        </div>
-        <div class="form-row" style="margin-top:10px;">
-          <div class="form-field" style="margin:0;">
+
+        <!-- Passengers -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+          <div>
             <label class="form-label">Adults</label>
-            <input type="number" id="fAdults" value="2" min="1" max="9" style="font-size:16px!important;">
+            <div style="display:flex;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+              <button onclick="stepInput('fAdults',-1,1)" style="width:44px;height:44px;border:none;background:none;color:var(--accent);font-size:20px;cursor:pointer;flex-shrink:0;">−</button>
+              <input type="number" id="fAdults" value="2" min="1" max="9" style="font-size:18px!important;text-align:center;border:none;background:none;flex:1;padding:0;min-width:0;">
+              <button onclick="stepInput('fAdults',1,9)" style="width:44px;height:44px;border:none;background:none;color:var(--accent);font-size:20px;cursor:pointer;flex-shrink:0;">+</button>
+            </div>
           </div>
-          <div class="form-field" style="margin:0;">
+          <div>
             <label class="form-label">Children</label>
-            <input type="number" id="fChildren" value="2" min="0" max="9" style="font-size:16px!important;">
+            <div style="display:flex;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+              <button onclick="stepInput('fChildren',-1,0)" style="width:44px;height:44px;border:none;background:none;color:var(--accent);font-size:20px;cursor:pointer;flex-shrink:0;">−</button>
+              <input type="number" id="fChildren" value="2" min="0" max="9" style="font-size:18px!important;text-align:center;border:none;background:none;flex:1;padding:0;min-width:0;">
+              <button onclick="stepInput('fChildren',1,9)" style="width:44px;height:44px;border:none;background:none;color:var(--accent);font-size:20px;cursor:pointer;flex-shrink:0;">+</button>
+            </div>
           </div>
         </div>
+
+        <!-- Cabin class -->
+        <div style="margin-bottom:20px;">
+          <label class="form-label">Cabin Class</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+            <button class="cabin-btn active" data-class="economy" onclick="selectClass(this)" style="padding:12px;border-radius:8px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent);font-family:var(--font-mono);font-size:12px;cursor:pointer;min-height:44px;">Economy</button>
+            <button class="cabin-btn" data-class="premium" onclick="selectClass(this)" style="padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);font-family:var(--font-mono);font-size:12px;cursor:pointer;min-height:44px;">Premium Eco</button>
+            <button class="cabin-btn" data-class="business" onclick="selectClass(this)" style="padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);font-family:var(--font-mono);font-size:12px;cursor:pointer;min-height:44px;">Business</button>
+            <button class="cabin-btn" data-class="first" onclick="selectClass(this)" style="padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);font-family:var(--font-mono);font-size:12px;cursor:pointer;min-height:44px;">First</button>
+          </div>
+        </div>
+
         <button class="search-btn" onclick="searchFlights()">SEARCH FLIGHTS</button>
         <div id="flightResults" style="margin-top:16px;"></div>
       </div>
 
       <!-- Stays Form -->
-      <div id="stayForm" style="display:none;">
-        <div class="form-field">
-          <label class="form-label">Destination</label>
-          <input type="text" id="sDestination" placeholder="City, region or country" style="font-size:16px!important;">
+      <div id="stayForm" style="display:none;padding:20px;">
+
+        <!-- AI bar (shared input, hidden for stays but same element reused) -->
+        <div style="position:relative;margin-bottom:20px;">
+          <input type="text" id="aiInputStays" placeholder="✦ Ask AI: e.g. beach house 3hrs from Sydney…" style="font-size:16px!important;padding-right:48px;background:var(--bg2);border-color:var(--accent);border-width:1px;">
+          <button onclick="runAISearch()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:8px;background:var(--green);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#04080f" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          </button>
         </div>
-        <div class="form-row">
-          <div class="form-field" style="margin:0;">
+
+        <div style="margin-bottom:16px;">
+          <label class="form-label">Destination</label>
+          <input type="text" id="sDestination" placeholder="City, region or area" style="font-size:16px!important;">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+          <div>
             <label class="form-label">Check In</label>
             <input type="date" id="sCheckin" style="font-size:16px!important;">
           </div>
-          <div class="form-field" style="margin:0;">
+          <div>
             <label class="form-label">Check Out</label>
             <input type="date" id="sCheckout" style="font-size:16px!important;">
           </div>
         </div>
-        <div class="form-row" style="margin-top:10px;">
-          <div class="form-field" style="margin:0;">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+          <div>
             <label class="form-label">Guests</label>
-            <input type="number" id="sGuests" value="4" min="1" max="20" style="font-size:16px!important;">
+            <div style="display:flex;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+              <button onclick="stepInput('sGuests',-1,1)" style="width:44px;height:44px;border:none;background:none;color:var(--green);font-size:20px;cursor:pointer;flex-shrink:0;">−</button>
+              <input type="number" id="sGuests" value="4" min="1" max="20" style="font-size:18px!important;text-align:center;border:none;background:none;flex:1;padding:0;min-width:0;">
+              <button onclick="stepInput('sGuests',1,20)" style="width:44px;height:44px;border:none;background:none;color:var(--green);font-size:20px;cursor:pointer;flex-shrink:0;">+</button>
+            </div>
           </div>
-          <div class="form-field" style="margin:0;">
+          <div>
             <label class="form-label">Bedrooms</label>
-            <input type="number" id="sBedrooms" value="2" min="1" max="10" style="font-size:16px!important;">
+            <div style="display:flex;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+              <button onclick="stepInput('sBedrooms',-1,1)" style="width:44px;height:44px;border:none;background:none;color:var(--green);font-size:20px;cursor:pointer;flex-shrink:0;">−</button>
+              <input type="number" id="sBedrooms" value="2" min="1" max="10" style="font-size:18px!important;text-align:center;border:none;background:none;flex:1;padding:0;min-width:0;">
+              <button onclick="stepInput('sBedrooms',1,10)" style="width:44px;height:44px;border:none;background:none;color:var(--green);font-size:20px;cursor:pointer;flex-shrink:0;">+</button>
+            </div>
           </div>
         </div>
-        <div style="margin-top:10px;">
+
+        <div style="margin-bottom:20px;">
           <label class="form-label">Property Type</label>
-          <div class="class-pills" id="stayTypeFilter">
-            <div class="pill active" data-stype="any" onclick="selectStayType(this)">Any</div>
-            <div class="pill" data-stype="apartment" onclick="selectStayType(this)">Apartment</div>
-            <div class="pill" data-stype="house" onclick="selectStayType(this)">House</div>
-            <div class="pill" data-stype="cabin" onclick="selectStayType(this)">Cabin</div>
-            <div class="pill" data-stype="villa" onclick="selectStayType(this)">Villa</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;" id="stayTypeFilter">
+            <button class="stype-btn active" data-stype="any" onclick="selectStayType(this)" style="padding:12px;border-radius:8px;border:1px solid var(--green);background:var(--green-dim);color:var(--green);font-family:var(--font-mono);font-size:12px;cursor:pointer;min-height:44px;">Any</button>
+            <button class="stype-btn" data-stype="apartment" onclick="selectStayType(this)" style="padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);font-family:var(--font-mono);font-size:12px;cursor:pointer;min-height:44px;">Apartment</button>
+            <button class="stype-btn" data-stype="house" onclick="selectStayType(this)" style="padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);font-family:var(--font-mono);font-size:12px;cursor:pointer;min-height:44px;">House</button>
+            <button class="stype-btn" data-stype="cabin" onclick="selectStayType(this)" style="padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);font-family:var(--font-mono);font-size:12px;cursor:pointer;min-height:44px;">Cabin</button>
+            <button class="stype-btn" data-stype="villa" onclick="selectStayType(this)" style="padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);font-family:var(--font-mono);font-size:12px;cursor:pointer;min-height:44px;">Villa</button>
+            <button class="stype-btn" data-stype="beach" onclick="selectStayType(this)" style="padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);font-family:var(--font-mono);font-size:12px;cursor:pointer;min-height:44px;">Beach</button>
           </div>
         </div>
-        <button class="search-btn" onclick="searchStays()">SEARCH STAYS</button>
+
+        <button class="search-btn" onclick="searchStays()" style="background:var(--green);">SEARCH STAYS</button>
         <div id="stayResults" style="margin-top:16px;"></div>
       </div>
     </div>
@@ -2441,8 +2488,42 @@ function switchSearchType(type) {
   S.searchType = type;
   document.getElementById('flightForm').style.display = type === 'flights' ? 'block' : 'none';
   document.getElementById('stayForm').style.display = type === 'stays' ? 'block' : 'none';
-  document.getElementById('searchFlightsBtn').classList.toggle('active', type === 'flights');
-  document.getElementById('searchStaysBtn').classList.toggle('active', type === 'stays');
+  const fb = document.getElementById('searchFlightsBtn');
+  const sb = document.getElementById('searchStaysBtn');
+  fb.style.color = type === 'flights' ? 'var(--accent)' : 'var(--text2)';
+  fb.style.borderBottomColor = type === 'flights' ? 'var(--accent)' : 'transparent';
+  sb.style.color = type === 'stays' ? 'var(--green)' : 'var(--text2)';
+  sb.style.borderBottomColor = type === 'stays' ? 'var(--green)' : 'transparent';
+}
+
+function stepInput(id, delta, bound) {
+  const el = document.getElementById(id);
+  const val = parseInt(el.value) + delta;
+  const min = delta < 0 ? bound : parseInt(el.min) || 0;
+  const max = delta > 0 ? bound : parseInt(el.max) || 99;
+  el.value = Math.min(max, Math.max(min, val));
+}
+
+function selectClass(el) {
+  document.querySelectorAll('.cabin-btn').forEach(b => {
+    b.style.background = 'var(--bg2)';
+    b.style.borderColor = 'var(--border)';
+    b.style.color = 'var(--text1)';
+  });
+  el.style.background = 'var(--accent-dim)';
+  el.style.borderColor = 'var(--accent)';
+  el.style.color = 'var(--accent)';
+}
+
+function selectStayType(el) {
+  document.querySelectorAll('.stype-btn').forEach(b => {
+    b.style.background = 'var(--bg2)';
+    b.style.borderColor = 'var(--border)';
+    b.style.color = 'var(--text1)';
+  });
+  el.style.background = 'var(--green-dim)';
+  el.style.borderColor = 'var(--green)';
+  el.style.color = 'var(--green)';
 }
 
 function switchLMTab(tab) {
@@ -2461,14 +2542,6 @@ function switchWatchTab(tab, el) {
 }
 
 // ═══ SEARCH ═══
-function selectClass(el) {
-  document.querySelectorAll('[data-class]').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
-}
-function selectStayType(el) {
-  document.querySelectorAll('[data-stype]').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
-}
 function selectPeriod(el) {
   document.querySelectorAll('[data-period]').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
