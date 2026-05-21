@@ -2539,17 +2539,18 @@ async function runWorkerTest() {
   if (btn) { btn.style.borderColor = 'var(--amber)'; btn.style.color = 'var(--amber)'; btn.disabled = true; }
 
   try {
-    // Step 1 — reachability
-    const health = await fetch(url + '/health', { signal: AbortSignal.timeout(6000) });
+    // Step 1 — reachability (GET, no preflight)
+    const health = await fetch(url + '/health', {
+      signal: AbortSignal.timeout(10000)
+    });
     if (!health.ok) throw new Error('health_fail');
 
-    // Step 2 — token check via /api/ping
+    // Step 2 — token check via GET /api/ping (no preflight needed)
     const token = getSecretToken();
     const ping = await fetch(url + '/api/ping', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Roam-Token': token || '' },
-      body: '{}',
-      signal: AbortSignal.timeout(6000)
+      method: 'GET',
+      headers: { 'X-Roam-Token': token || '' },
+      signal: AbortSignal.timeout(10000)
     });
 
     if (ping.status === 401) {
@@ -2567,7 +2568,7 @@ async function runWorkerTest() {
     STATE._workerOnline = false;
     STATE._workerTested = true;
     if (dot) dot.style.background = 'var(--red)';
-    if (lbl) lbl.textContent = url.includes('http') ? 'Timeout' : 'Bad URL';
+    if (lbl) lbl.textContent = e.name === 'TimeoutError' ? 'Timeout' : 'Failed';
     if (btn) { btn.style.borderColor = 'var(--red)'; btn.style.color = 'var(--red)'; }
   }
   if (btn) btn.disabled = false;

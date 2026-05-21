@@ -73,6 +73,7 @@ Add each as an **encrypted secret**:
 | `ROAM_SECRET_TOKEN` | Make it up — any random string e.g. `roam-abc123-xyz789` |
 | `IGNAV_API_KEY` | ignav.com → sign up → API Keys |
 | `SEARCHAPI_KEY` | searchapi.io → sign up → key |
+| `SERPAPI_KEY` | serpapi.com → sign up → API Key |
 | `RAPIDAPI_KEY` | rapidapi.com → sign up → key |
 | `BOOKING_AFFILIATE_ID` | booking.com/affiliate-program → your affiliate ID |
 | `UNSPLASH_ACCESS_KEY` | unsplash.com/developers → Access Key |

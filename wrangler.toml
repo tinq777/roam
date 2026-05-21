@@ -6,6 +6,7 @@ compatibility_date = "2024-01-01"
 # Required secrets (set in Cloudflare Workers → Settings → Variables):
 #   IGNAV_API_KEY
 #   SEARCHAPI_KEY
+#   SERPAPI_KEY
 #   RAPIDAPI_KEY
 #   BOOKING_AFFILIATE_ID
 #   UNSPLASH_ACCESS_KEY

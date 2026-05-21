@@ -15,6 +15,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, X-Roam-Token, X-Claude-Key',
+  'Access-Control-Max-Age': '86400',
 };
 
 function json(data, status = 200) {
@@ -53,7 +54,7 @@ export default {
       return json({ status: 'ok', version: '2.0.0', app: 'ROAM' });
     }
 
-    // Ping — requires token, used by Test button to verify token is correct
+    // Ping — GET request, requires token, used by Test button
     if (path === '/api/ping') {
       if (!isAuthorized(request, env)) return unauthorized();
       return json({ status: 'ok', auth: 'valid' });
@@ -104,25 +105,27 @@ export default {
 };
 
 // ════════════════════════════════════════════════════════════
-// FLIGHTS — Ignav + SearchAPI in parallel, merged by price
+// FLIGHTS — Ignav + SearchAPI + SerpApi in parallel, merged by price
 // ════════════════════════════════════════════════════════════
 async function handleFlights(request, env) {
   const body = await request.json();
   const { from = 'SYD', to, depart, ret, adults = 2, children = 2 } = body;
 
-  const [ignavResult, searchApiResult] = await Promise.allSettled([
+  const [ignavResult, searchApiResult, serpApiResult] = await Promise.allSettled([
     fetchIgnav(from, to, depart, ret, adults, children, env),
     fetchSearchApi(from, to, depart, ret, adults, children, env),
+    fetchSerpApi(from, to, depart, ret, adults, children, env),
   ]);
 
-  const ignavFlights  = ignavResult.status === 'fulfilled' ? ignavResult.value : [];
+  const ignavFlights  = ignavResult.status === 'fulfilled'    ? ignavResult.value    : [];
   const searchFlights = searchApiResult.status === 'fulfilled' ? searchApiResult.value : [];
+  const serpFlights   = serpApiResult.status === 'fulfilled'   ? serpApiResult.value   : [];
 
-  // Merge, deduplicate by route+price, sort by price
+  // Merge, deduplicate by route+airline+price, sort by price
   const seen = new Set();
-  const merged = [...ignavFlights, ...searchFlights]
+  const merged = [...ignavFlights, ...searchFlights, ...serpFlights]
     .filter(f => {
-      const key = `${f.from}-${f.to}-${f.price}`;
+      const key = `${f.from}-${f.to}-${f.airline}-${f.price}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -132,6 +135,7 @@ async function handleFlights(request, env) {
   const source = [
     ignavFlights.length  ? 'Ignav'     : null,
     searchFlights.length ? 'SearchAPI' : null,
+    serpFlights.length   ? 'SerpApi'   : null,
   ].filter(Boolean).join(' + ') || 'none';
 
   return json({ flights: merged, source });
@@ -208,25 +212,57 @@ async function fetchSearchApi(from, to, depart, ret, adults, children, env) {
   } catch (e) { return []; }
 }
 
-// ════════════════════════════════════════════════════════════
-// LAST MINUTE — parallel Ignav + SearchAPI, depart today/tomorrow
-// ════════════════════════════════════════════════════════════
+async function fetchSerpApi(from, to, depart, ret, adults, children, env) {
+  if (!env.SERPAPI_KEY) return [];
+  try {
+    const params = new URLSearchParams({
+      engine: 'google_flights',
+      departure_id: from,
+      arrival_id: to || '',
+      outbound_date: depart || '',
+      ...(ret ? { return_date: ret, type: '1' } : { type: '2' }),
+      adults: String(adults),
+      children: String(children),
+      currency: 'AUD',
+      hl: 'en',
+      api_key: env.SERPAPI_KEY,
+    });
+    const r = await fetch(`https://serpapi.com/search?${params}`);
+    if (!r.ok) return [];
+    const data = await r.json();
+    const raw = [...(data.best_flights || []), ...(data.other_flights || [])];
+    return raw.map((f, i) => ({
+      id: 'sp_' + i,
+      from: f.flights?.[0]?.departure_airport?.id || from,
+      to: f.flights?.at(-1)?.arrival_airport?.id || to,
+      dest: f.flights?.at(-1)?.arrival_airport?.name || to,
+      price: Math.round(f.price || 0),
+      airline: f.flights?.[0]?.airline || 'Unknown',
+      duration: formatMins(f.total_duration),
+      stops: stopsLabel(f.flights?.length),
+      depart: f.flights?.[0]?.departure_airport?.time || depart,
+      url: 'https://flights.google.com',
+      source: 'serpapi',
+    }));
+  } catch (e) { return []; }
+}
 async function handleLastMinute(request, env, url) {
   const from = url.searchParams.get('from') || 'SYD';
   const today = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
-  const [r1, r2] = await Promise.allSettled([
+  const [r1, r2, r3] = await Promise.allSettled([
     fetchIgnav(from, '', today, '', 2, 2, env),
     fetchSearchApi(from, '', today, '', 2, 2, env),
+    fetchSerpApi(from, '', today, '', 2, 2, env),
   ]);
 
   const seen = new Set();
   const merged = [
     ...(r1.status === 'fulfilled' ? r1.value : []),
     ...(r2.status === 'fulfilled' ? r2.value : []),
+    ...(r3.status === 'fulfilled' ? r3.value : []),
   ].filter(f => {
-    const key = `${f.from}-${f.to}-${f.price}`;
+    const key = `${f.from}-${f.to}-${f.airline}-${f.price}`;
     if (seen.has(key)) return false;
     seen.add(key); return true;
   }).sort((a, b) => a.price - b.price);
@@ -256,15 +292,17 @@ async function handleInspire(request, env, url) {
     ret = r.toISOString().split('T')[0];
   }
 
-  const [r1, r2] = await Promise.allSettled([
+  const [r1, r2, r3] = await Promise.allSettled([
     fetchIgnav(from, '', depart, ret, 2, 2, env),
     fetchSearchApi(from, '', depart, ret, 2, 2, env),
+    fetchSerpApi(from, '', depart, ret, 2, 2, env),
   ]);
 
   const seen = new Set();
   const destinations = [
     ...(r1.status === 'fulfilled' ? r1.value : []),
     ...(r2.status === 'fulfilled' ? r2.value : []),
+    ...(r3.status === 'fulfilled' ? r3.value : []),
   ].filter(f => {
     if (!f.to || seen.has(f.to)) return false;
     seen.add(f.to); return true;
