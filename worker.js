@@ -60,6 +60,45 @@ export default {
       return json({ status: 'ok', auth: 'valid' });
     }
 
+    // Debug — no token needed, safe (no API keys exposed, just tests connectivity)
+    // Usage: /api/debug?from=SYD&to=MEL&depart=2026-05-28
+    if (path === '/api/debug') {
+      const from = url.searchParams.get('from') || 'SYD';
+      const to = url.searchParams.get('to') || 'MEL';
+      const depart = url.searchParams.get('depart') || new Date(Date.now() + 7*86400000).toISOString().split('T')[0];
+      const results = {};
+
+      // Test Ignav
+      try {
+        const r = await fetch('https://ignav.com/api/fares/one-way', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Api-Key': env.IGNAV_API_KEY || 'NOT_SET' },
+          body: JSON.stringify({ origin: from, destination: to, departure_date: depart }),
+          signal: AbortSignal.timeout(8000)
+        });
+        const text = await r.text();
+        results.ignav = { status: r.status, ok: r.ok, keySet: !!env.IGNAV_API_KEY, preview: text.slice(0, 300) };
+      } catch(e) { results.ignav = { error: e.message, keySet: !!env.IGNAV_API_KEY }; }
+
+      // Test SearchAPI
+      try {
+        const params = new URLSearchParams({ engine:'google_flights', departure_id:from, arrival_id:to, outbound_date:depart, flight_type:'one_way', adults:'1', currency:'AUD', api_key: env.SEARCHAPI_KEY || 'NOT_SET' });
+        const r = await fetch(`https://www.searchapi.io/api/v1/search?${params}`, { signal: AbortSignal.timeout(8000) });
+        const text = await r.text();
+        results.searchapi = { status: r.status, ok: r.ok, keySet: !!env.SEARCHAPI_KEY, preview: text.slice(0, 300) };
+      } catch(e) { results.searchapi = { error: e.message, keySet: !!env.SEARCHAPI_KEY }; }
+
+      // Test SerpApi
+      try {
+        const params = new URLSearchParams({ engine:'google_flights', departure_id:from, arrival_id:to, outbound_date:depart, type:'2', adults:'1', currency:'AUD', hl:'en', api_key: env.SERPAPI_KEY || 'NOT_SET' });
+        const r = await fetch(`https://serpapi.com/search?${params}`, { signal: AbortSignal.timeout(8000) });
+        const text = await r.text();
+        results.serpapi = { status: r.status, ok: r.ok, keySet: !!env.SERPAPI_KEY, preview: text.slice(0, 300) };
+      } catch(e) { results.serpapi = { error: e.message, keySet: !!env.SERPAPI_KEY }; }
+
+      return json({ debug: true, params: { from, to, depart }, results });
+    }
+
     // All other routes require token
     if (!isAuthorized(request, env)) {
       return unauthorized();
