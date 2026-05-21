@@ -9,7 +9,7 @@
 iPhone / Browser
       │
       ▼
-ROAM index.html  ──────►  Cloudflare Worker  ──────►  Kiwi (flights)
+ROAM index.html  ──────►  Cloudflare Worker  ──────►  Ignav + SearchAPI (flights)
 (your device)              (your-subdomain              Airbnb (stays)
                             .workers.dev)               Booking.com (stays)
                                                         Unsplash (photos)
@@ -24,7 +24,8 @@ All API keys live **only in the Worker** — never in the HTML file you deploy.
 
 | Service | Sign up | What it does | Cost |
 |---------|---------|--------------|------|
-| **Kiwi Tequila** | [tequila.kiwi.com](https://tequila.kiwi.com) | Flight search | Free |
+| **Ignav** | [ignav.com](https://ignav.com) | Flight search | Free (1,000/mo)
+| **SearchAPI** | [searchapi.io](https://searchapi.io) | Flight search fallback | Free (100/mo) |
 | **Airbnb (RapidAPI)** | [rapidapi.com](https://rapidapi.com/3b-data-3b-data-default/api/airbnb13) → Search "airbnb13" | Stay search | 100 req/mo free |
 | **Booking.com (RapidAPI)** | [rapidapi.com](https://rapidapi.com/DataCrawler/api/booking-com15) → Search "booking-com15" | Stay search | 500 req/mo free |
 | **Unsplash** | [unsplash.com/developers](https://unsplash.com/developers) → New Application | Destination & property photos | 50 req/hr free |
@@ -32,7 +33,7 @@ All API keys live **only in the Worker** — never in the HTML file you deploy.
 | **Cloudflare** | [cloudflare.com](https://cloudflare.com) | Worker hosting | Free (100k req/day) |
 
 > 💡 ROAM works without all keys — it falls back to rich demo data for any missing service.
-> Start with just Cloudflare + Kiwi to get real flights immediately.
+> Start with Cloudflare + Ignav to get real flights immediately.
 
 ---
 
@@ -73,7 +74,8 @@ APP_NAME = "ROAM"
 Run each command and paste your key when prompted:
 
 ```bash
-wrangler secret put KIWI_API_KEY
+wrangler secret put IGNAV_API_KEY
+wrangler secret put SEARCHAPI_KEY
 wrangler secret put AIRBNB_API_KEY
 wrangler secret put BOOKING_API_KEY
 wrangler secret put UNSPLASH_ACCESS_KEY
@@ -215,7 +217,8 @@ from the API responses as real listing images.
 | Service | Free Tier | Typical Usage | Cost |
 |---------|-----------|---------------|------|
 | Cloudflare Workers | 100k req/day | ~200 req/day | $0 |
-| Kiwi Tequila | Generous free tier | ~50 req/day | $0 |
+| Ignav | 1,000 req/month | ~33/day | $0 |
+| SearchAPI | 100 req/month | fallback | $0 |
 | Airbnb (RapidAPI) | 100 req/month | ~50 req/month | $0 |
 | Booking.com (RapidAPI) | 500 req/month | ~100 req/month | $0 |
 | Unsplash | 50 req/hr | ~30 req/hr peak | $0 |
@@ -234,7 +237,6 @@ from the API responses as real listing images.
 → Picsum fallback should always work — if even that fails, check network.
 
 **No flights returned**
-→ Verify KIWI_API_KEY: `curl -H "apikey: YOUR_KEY" "https://api.tequila.kiwi.com/v2/search?fly_from=SYD&date_from=01/06/2026&date_to=10/06/2026&curr=AUD"`
 
 **CORS error in console**
 → Make sure you're calling the Worker URL (https://...) not localhost.

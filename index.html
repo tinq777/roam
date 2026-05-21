@@ -1664,6 +1664,8 @@ const MOCK_INSPIRE_STAYS = [
   { id:'is8', title:'Overwater Bungalow · Maldives', type:'villa', location:'North Malé Atoll', price:890, avg:1200, drop:26, beds:1, guests:2, nights:7, source:'booking', bookUrl:'https://www.booking.com', img:'https://images.unsplash.com/photo-1520466809213-7b9a56adcd45?w=600&q=80', period:'anytime', tag:'BUCKET LIST' },
   { id:'is9', title:'Penthouse · Bangkok', type:'apartment', location:'Sukhumvit, Bangkok', price:195, avg:260, drop:25, beds:2, guests:4, nights:7, source:'booking', bookUrl:'https://www.booking.com', img:'https://images.unsplash.com/photo-1508009603885-50cf7c579365?w=600&q=80', period:'anytime', tag:'' },
 ];
+
+const MOCK_LM_FLIGHTS = [
   { id:'lf1', from:'SYD', to:'MEL', toCity:'Melbourne', airline:'Virgin Australia', price:89, avg:245, drop:64, departs:'Today 18:30', logo:'VA', bookUrl:'https://www.virginaustralia.com' },
   { id:'lf2', from:'SYD', to:'BNE', toCity:'Brisbane', airline:'Qantas', price:105, avg:215, drop:51, departs:'Today 21:15', logo:'QF', bookUrl:'https://www.qantas.com' },
   { id:'lf3', from:'SYD', to:'PER', toCity:'Perth', airline:'Jetstar', price:198, avg:345, drop:43, departs:'Tomorrow 06:00', logo:'JQ', bookUrl:'https://www.jetstar.com' },
@@ -2377,7 +2379,7 @@ FEATURES
 TECH STACK
 ─ Vanilla HTML / CSS / JS — zero dependencies
 ─ Claude AI for natural language search
-─ Kiwi Tequila API for real flight prices
+─ Ignav + SearchAPI for real flight prices (parallel search)
 ─ Airbnb + Booking.com APIs for stays
 ─ Cloudflare Workers backend proxy
 ─ localStorage + IndexedDB for all data

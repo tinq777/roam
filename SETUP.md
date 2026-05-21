@@ -131,7 +131,8 @@ GitHub Actions redeploys Worker + Pages automatically.
 GitHub Pages          Free
 Cloudflare Workers    Free  (100k req/day)
 GitHub Actions        Free  (2000 min/month)
-Kiwi Tequila          Free
+Ignav                 Free  (1,000 req/month)
+SearchAPI             Free  (100 req/month)
 RapidAPI Airbnb       Free  (100 req/month)
 Booking.com           Free  (affiliate)
 Unsplash              Free  (50 req/hour)

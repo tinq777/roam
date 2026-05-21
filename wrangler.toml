@@ -4,13 +4,15 @@ compatibility_date = "2024-01-01"
 
 # Secrets are set via Cloudflare dashboard or wrangler CLI — NOT here.
 # Required secrets (set in Cloudflare Workers → Settings → Variables):
-#   KIWI_API_KEY
+#   IGNAV_API_KEY
+#   SEARCHAPI_KEY
 #   RAPIDAPI_KEY
 #   BOOKING_AFFILIATE_ID
 #   UNSPLASH_ACCESS_KEY
+#   ROAM_SECRET_TOKEN
 #
-# Optional secrets:
-#   ANTHROPIC_API_KEY  ← only needed as fallback; app sends key from Settings per-request
+# Optional:
+#   ANTHROPIC_API_KEY  ← fallback only; app sends Claude key from Settings per-request
 
 [env.production]
 name = "roam"
