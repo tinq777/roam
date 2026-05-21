@@ -207,16 +207,17 @@ async function fetchSearchApi(from, to, depart, ret, adults, children, env) {
       departure_id: from,
       arrival_id: to || '',
       outbound_date: depart || '',
-      ...(ret ? { return_date: ret, type: '1' } : { type: '2' }),
-      adults: String(adults),
-      children: String(children),
+      flight_type: ret ? 'round_trip' : 'one_way',
+      ...(ret ? { return_date: ret } : {}),
+      adults: String(parseInt(adults) || 1),
+      children: String(parseInt(children) || 0),
       currency: 'AUD',
       api_key: env.SEARCHAPI_KEY,
     });
     console.log(`[ROAM] SearchAPI: ${from}→${to} ${depart}`);
     const r = await fetch(`https://www.searchapi.io/api/v1/search?${params}`);
     const text = await r.text();
-    console.log(`[ROAM] SearchAPI response ${r.status}: ${text.slice(0,200)}`);
+    console.log(`[ROAM] SearchAPI response ${r.status}: ${text.slice(0,300)}`);
     if (!r.ok) return [];
     const data = JSON.parse(text);
     const raw = [...(data.best_flights || []), ...(data.other_flights || [])];
@@ -227,6 +228,7 @@ async function fetchSearchApi(from, to, depart, ret, adults, children, env) {
       dest: f.flights?.at(-1)?.arrival_airport?.name || to,
       price: Math.round(f.price || 0),
       airline: f.flights?.[0]?.airline || 'Unknown',
+      airlineLogo: f.flights?.[0]?.airline_logo || '',
       duration: formatMins(f.total_duration),
       stops: stopsLabel(f.flights?.length),
       depart: f.flights?.[0]?.departure_airport?.time || depart,
@@ -239,14 +241,16 @@ async function fetchSearchApi(from, to, depart, ret, adults, children, env) {
 async function fetchSerpApi(from, to, depart, ret, adults, children, env) {
   if (!env.SERPAPI_KEY) { console.log('[ROAM] SerpApi: no key'); return []; }
   try {
+    // SerpApi round trip requires a two-step process with departure_token
+    // So we search one-way outbound only for simplicity
     const params = new URLSearchParams({
       engine: 'google_flights',
       departure_id: from,
       arrival_id: to || '',
       outbound_date: depart || '',
-      ...(ret ? { return_date: ret, type: '1' } : { type: '2' }),
-      adults: String(adults),
-      children: String(children),
+      type: '2', // one-way
+      adults: String(parseInt(adults) || 1),
+      children: String(parseInt(children) || 0),
       currency: 'AUD',
       hl: 'en',
       api_key: env.SERPAPI_KEY,
@@ -254,23 +258,28 @@ async function fetchSerpApi(from, to, depart, ret, adults, children, env) {
     console.log(`[ROAM] SerpApi: ${from}→${to} ${depart}`);
     const r = await fetch(`https://serpapi.com/search?${params}`);
     const text = await r.text();
-    console.log(`[ROAM] SerpApi response ${r.status}: ${text.slice(0,200)}`);
+    console.log(`[ROAM] SerpApi response ${r.status}: ${text.slice(0,300)}`);
     if (!r.ok) return [];
     const data = JSON.parse(text);
     const raw = [...(data.best_flights || []), ...(data.other_flights || [])];
-    return raw.map((f, i) => ({
-      id: 'sp_' + i,
-      from: f.flights?.[0]?.departure_airport?.id || from,
-      to: f.flights?.at(-1)?.arrival_airport?.id || to,
-      dest: f.flights?.at(-1)?.arrival_airport?.name || to,
-      price: Math.round(f.price || 0),
-      airline: f.flights?.[0]?.airline || 'Unknown',
-      duration: formatMins(f.total_duration),
-      stops: stopsLabel(f.flights?.length),
-      depart: f.flights?.[0]?.departure_airport?.time || depart,
-      bookUrl: 'https://flights.google.com',
-      source: 'serpapi',
-    }));
+    return raw.map((f, i) => {
+      // total_duration is in minutes for SerpApi
+      const totalMins = f.total_duration || f.flights?.reduce((s, fl) => s + (fl.duration || 0), 0) || 0;
+      return {
+        id: 'sp_' + i,
+        from: f.flights?.[0]?.departure_airport?.id || from,
+        to: f.flights?.at(-1)?.arrival_airport?.id || to,
+        dest: f.flights?.at(-1)?.arrival_airport?.name || to,
+        price: Math.round(f.price || 0),
+        airline: f.flights?.[0]?.airline || 'Unknown',
+        airlineLogo: f.flights?.[0]?.airline_logo || '',
+        duration: formatMins(totalMins),
+        stops: stopsLabel(f.flights?.length),
+        depart: f.flights?.[0]?.departure_airport?.time || depart,
+        bookUrl: 'https://flights.google.com',
+        source: 'serpapi',
+      };
+    });
   } catch (e) { console.log(`[ROAM] SerpApi error: ${e.message}`); return []; }
 }
 async function handleLastMinute(request, env, url) {
