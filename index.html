@@ -1502,6 +1502,35 @@ function loadMockData() {
 function renderFlightCard(f, container) {
   const isSaved = STATE.watchlist.flights.some(w => w.id === f.id);
   const isGood = f.drop > 0;
+
+  // Format depart date/time cleanly
+  const city = f.dest || f.toCity || f.to || '';
+  const departRaw = f.depart || f.date || '';
+  let departStr = departRaw;
+  try {
+    if (departRaw && departRaw.length >= 10) {
+      const d = new Date(departRaw);
+      if (!isNaN(d)) {
+        departStr = d.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' });
+        if (departRaw.length > 10) {
+          departStr += ' · ' + d.toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit' });
+        }
+      }
+    }
+  } catch(e) {}
+
+  // Build Google Flights deep link with route and date
+  const fromCode = f.from || '';
+  const toCode = f.to || '';
+  const dateCode = (departRaw || '').slice(0, 10);
+  const bookUrl = f.bookUrl && f.bookUrl.startsWith('https://') && !f.bookUrl.includes('ignav.com/api')
+    ? f.bookUrl
+    : `https://www.google.com/travel/flights/search?q=Flights+${fromCode}+to+${toCode}+on+${dateCode}&hl=en`;
+
+  const stopsLabel = typeof f.stops === 'number'
+    ? (f.stops === 0 ? 'Direct' : `${f.stops} stop${f.stops > 1 ? 's' : ''}`)
+    : (f.stops || 'Direct');
+
   const div = document.createElement('div');
   div.className = 'flight-card fade-in';
   div.innerHTML = `
@@ -1510,38 +1539,39 @@ function renderFlightCard(f, container) {
         <span class="flight-airport">${f.from}</span>
         <div class="flight-arrow">
           <div class="flight-arrow-line"></div>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--textDim)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
         <span class="flight-airport">${f.to}</span>
       </div>
       <div class="flight-details">
-        <div class="flight-detail"><span class="t-label">City</span><span style="color:var(--textPrimary);font-size:12px">${f.toCity}</span></div>
-        <div class="flight-detail"><span class="t-label">Duration</span><span style="font-size:12px;color:var(--textSecondary)">${f.duration}</span></div>
-        <div class="flight-detail"><span class="t-label">Stops</span><span style="font-size:12px;color:var(--textSecondary)">${f.stops === 0 ? 'Direct' : f.stops + ' stop'}</span></div>
-        <div class="flight-detail"><span class="t-label">Date</span><span style="font-size:12px;color:var(--textSecondary)">${f.date}</span></div>
+        ${city ? `<div class="flight-detail"><span class="t-label">City</span><span style="color:var(--text0);font-size:12px">${city}</span></div>` : ''}
+        ${f.duration ? `<div class="flight-detail"><span class="t-label">Duration</span><span style="font-size:12px;color:var(--text1)">${f.duration}</span></div>` : ''}
+        <div class="flight-detail"><span class="t-label">Stops</span><span style="font-size:12px;color:var(--text1)">${stopsLabel}</span></div>
+        ${departStr ? `<div class="flight-detail"><span class="t-label">Departs</span><span style="font-size:12px;color:var(--text1)">${departStr}</span></div>` : ''}
       </div>
     </div>
     <div class="flight-body">
       <div class="airline-info">
-        <div class="airline-logo"><span>${f.logo}</span></div>
+        <div class="airline-logo">
+          ${f.airlineLogo ? `<img src="${f.airlineLogo}" alt="${f.airline}">` : `<span style="font-size:10px">${(f.logo || f.airline || '').slice(0,2)}</span>`}
+        </div>
         <div>
-          <div style="font-size:13px;color:var(--textPrimary)">${f.airline}</div>
-          <div class="card-tag ${isGood ? 'tag-green' : 'tag-red'}" style="margin-top:3px;display:inline-block">
-            ${isGood ? '↓' : '↑'} ${Math.abs(f.drop)}% vs avg
-          </div>
+          <div style="font-size:13px;font-weight:500;color:var(--text0)">${f.airline || 'Unknown'}</div>
+          ${f.drop > 0 ? `<div class="card-tag tag-green" style="margin-top:3px;display:inline-block">↓ ${f.drop}% vs avg</div>` : ''}
+          ${f.source ? `<div style="font-size:10px;color:var(--text2);margin-top:2px">${f.source}</div>` : ''}
         </div>
       </div>
       <div style="text-align:right">
         <div class="card-price">$${f.price}</div>
-        <div class="card-price-sub">AUD pp · avg $${f.avg}</div>
+        <div class="card-price-sub">${f.currency || 'AUD'} · per person</div>
       </div>
     </div>
     <div class="card-actions">
-      <button class="btn-book" onclick="window.open('${f.bookUrl}','_blank')">
+      <button class="btn-book" onclick="window.open('${bookUrl}','_blank')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         BOOK FLIGHT
       </button>
-      <button class="btn-save ${isSaved ? 'saved' : ''}" onclick="toggleWatchFlight(event,'${f.id}',this)" title="${isSaved ? 'Remove from watchlist' : 'Add to watchlist'}">
+      <button class="btn-save ${isSaved ? 'saved' : ''}" onclick="toggleWatchFlight(event,'${f.id}',this)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="${isSaved ? 'var(--amber)' : 'none'}" stroke="${isSaved ? 'var(--amber)' : 'currentColor'}" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
       </button>
     </div>`;
@@ -1807,7 +1837,15 @@ async function searchFlights() {
   const results = document.getElementById('search-results');
   if (!results) { alert('ERROR: search-results div not found'); return; }
   results.style.display = 'block';
-  results.innerHTML = '<div style="padding:20px 0;color:var(--textDim);font-size:12px;letter-spacing:1px">SEARCHING FLIGHTS...</div>';
+  results.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:16px;">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1.2s linear infinite;">
+        <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>
+      </svg>
+      <div style="font-size:14px;font-weight:600;color:var(--text1);letter-spacing:0.5px;">Searching flights…</div>
+      <div style="font-size:12px;color:var(--text2);">Checking Ignav · SearchAPI · SerpApi</div>
+    </div>
+    <style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>`;
 
   const aiQuery = document.getElementById('fs-ai').value;
   const from = document.getElementById('fs-from').value;
@@ -1850,7 +1888,14 @@ async function searchStays() {
   const results = document.getElementById('search-results');
   if (!results) { alert('ERROR: search-results div not found'); return; }
   results.style.display = 'block';
-  results.innerHTML = '<div style="padding:20px 0;color:var(--textDim);font-size:12px;letter-spacing:1px">SEARCHING STAYS...</div>';
+  results.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:16px;">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1.2s linear infinite;">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <div style="font-size:14px;font-weight:600;color:var(--text1);letter-spacing:0.5px;">Searching stays…</div>
+      <div style="font-size:12px;color:var(--text2);">Checking Airbnb · Booking.com</div>
+    </div>`;
   const adults = parseInt(document.getElementById('ss-adults')?.textContent) || STATE.adults || 1;
   const children = parseInt(document.getElementById('ss-children')?.textContent) || STATE.children || 0;
   const bedrooms = parseInt(document.getElementById('ss-bedrooms')?.textContent) || STATE.bedrooms || 1;
