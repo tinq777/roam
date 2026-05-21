@@ -229,21 +229,26 @@ async function fetchIgnav(from, to, depart, ret, adults, children, env) {
     console.log(`[ROAM] Ignav response ${r.status}: ${text.slice(0, 200)}`);
     if (!r.ok) return [];
     const data = JSON.parse(text);
-    return (data.itineraries || []).map(f => ({
-      id: 'ig_' + (f.ignav_id || Math.random().toString(36).slice(2)),
-      from: f.outbound?.segments?.[0]?.departure_airport || from,
-      to: f.outbound?.segments?.at(-1)?.arrival_airport || to,
-      dest: f.outbound?.segments?.at(-1)?.arrival_airport || to,
-      price: Math.round(f.price?.amount || 0),
-      currency: f.price?.currency || 'USD',
-      airline: f.outbound?.segments?.[0]?.operating_carrier_name || 'Unknown',
-      duration: formatMins(f.outbound?.duration_minutes),
-      stops: stopsLabel(f.outbound?.segments?.length),
-      depart: f.outbound?.segments?.[0]?.departure_time_local?.slice(0,16) || depart,
-      bookUrl: `https://ignav.com/api/fares/booking-links`,
-      ignav_id: f.ignav_id,
-      source: 'ignav',
-    }));
+    return (data.itineraries || []).map(f => {
+      const fromAirport = f.outbound?.segments?.[0]?.departure_airport || from;
+      const toAirport = f.outbound?.segments?.at(-1)?.arrival_airport || to;
+      const departDate = (f.outbound?.segments?.[0]?.departure_time_local || depart || '').slice(0,10);
+      const googleUrl = `https://www.google.com/travel/flights/search?tfs=&q=Flights+${fromAirport}+to+${toAirport}&hl=en`;
+      return {
+        id: 'ig_' + (f.ignav_id || Math.random().toString(36).slice(2)),
+        from: fromAirport,
+        to: toAirport,
+        dest: toAirport,
+        price: Math.round(f.price?.amount || 0),
+        currency: f.price?.currency || 'USD',
+        airline: f.outbound?.segments?.[0]?.operating_carrier_name || 'Unknown',
+        duration: formatMins(f.outbound?.duration_minutes),
+        stops: stopsLabel(f.outbound?.segments?.length),
+        depart: (f.outbound?.segments?.[0]?.departure_time_local || depart || '').slice(0,16),
+        bookUrl: googleUrl,
+        source: 'ignav',
+      };
+    });
   } catch (e) { console.log(`[ROAM] Ignav error: ${e.message}`); return []; }
 }
 
