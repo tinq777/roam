@@ -1961,6 +1961,7 @@ function renderWatchlist() {
 // ══════════════════════════════════════════════════
 async function searchFlights() {
   const results = document.getElementById('search-results');
+  if (!results) { alert('ERROR: search-results div not found'); return; }
   results.style.display = 'block';
   results.innerHTML = '<div style="padding:20px 0;color:var(--textDim);font-size:12px;letter-spacing:1px">SEARCHING FLIGHTS...</div>';
 
@@ -1970,41 +1971,41 @@ async function searchFlights() {
   const workerUrl = getWorkerUrl();
 
   try {
-    if (!workerUrl) throw new Error('No worker URL');
+    if (!workerUrl) throw new Error('No worker URL configured');
     const resp = await fetch(workerUrl + '/api/flights', {
       method:'POST',
       headers:{'Content-Type':'application/json','X-Roam-Token':getSecretToken()},
       body: JSON.stringify({ from, to, depart: document.getElementById('fs-depart').value, return: document.getElementById('fs-return').value, adults: STATE.adults, children: STATE.children, aiQuery })
     });
-    if (!resp.ok) throw new Error('API error');
+    if (!resp.ok) throw new Error('API error ' + resp.status);
     const data = await resp.json();
     results.innerHTML = '';
     (data.flights || MOCK_FLIGHTS).forEach(f => renderFlightCard(f, results));
   } catch(e) {
-    // Fallback to mock data
-    results.innerHTML = '<div style="padding:8px 0 12px;color:var(--amber);font-size:11px;letter-spacing:1px">⚡ Using demo data — connect your Cloudflare Worker for live prices</div>';
+    results.innerHTML = '<div style="padding:8px 0 12px;color:var(--amber);font-size:11px;letter-spacing:1px">⚡ Using demo data — ' + e.message + '</div>';
     MOCK_FLIGHTS.forEach(f => renderFlightCard(f, results));
   }
 }
 
 async function searchStays() {
   const results = document.getElementById('search-results');
+  if (!results) { alert('ERROR: search-results div not found'); return; }
   results.style.display = 'block';
   results.innerHTML = '<div style="padding:20px 0;color:var(--textDim);font-size:12px;letter-spacing:1px">SEARCHING STAYS...</div>';
   const workerUrl = getWorkerUrl();
   try {
-    if (!workerUrl) throw new Error('No worker URL');
+    if (!workerUrl) throw new Error('No worker URL configured');
     const resp = await fetch(workerUrl + '/api/stays', {
       method:'POST',
       headers:{'Content-Type':'application/json','X-Roam-Token':getSecretToken()},
       body: JSON.stringify({ destination: document.getElementById('ss-dest').value, checkin: document.getElementById('ss-checkin').value, checkout: document.getElementById('ss-checkout').value, guests: STATE.adults + STATE.children, bedrooms: STATE.bedrooms })
     });
-    if (!resp.ok) throw new Error('API error');
+    if (!resp.ok) throw new Error('API error ' + resp.status);
     const data = await resp.json();
     results.innerHTML = '';
     (data.stays || MOCK_STAYS).forEach(s => renderStayCard(s, results));
   } catch(e) {
-    results.innerHTML = '<div style="padding:8px 0 12px;color:var(--amber);font-size:11px;letter-spacing:1px">⚡ Using demo data — connect your Cloudflare Worker for live prices</div>';
+    results.innerHTML = '<div style="padding:8px 0 12px;color:var(--amber);font-size:11px;letter-spacing:1px">⚡ Using demo data — ' + e.message + '</div>';
     MOCK_STAYS.forEach(s => renderStayCard(s, results));
   }
 }
