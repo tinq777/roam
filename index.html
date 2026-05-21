@@ -2615,13 +2615,22 @@ function closeApiDialog() { document.getElementById('api-dialog').classList.remo
 // INIT
 // ══════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
-  loadState();
-  applyTheme(STATE.theme);
-  if (STATE.onboarded) {
-    document.getElementById('onboarding').style.display = 'none';
-    showMainApp();
-  } else {
-    initOnboarding();
+  try {
+    loadState();
+    applyTheme(STATE.theme);
+    if (STATE.onboarded) {
+      document.getElementById('onboarding').style.display = 'none';
+      showMainApp();
+    } else {
+      initOnboarding();
+    }
+  } catch(e) {
+    console.error('ROAM init error:', e);
+    // Safety fallback — force onboarding to be interactive
+    const skip = document.getElementById('ob-skip');
+    const next = document.getElementById('ob-next');
+    if (skip) skip.onclick = () => { localStorage.setItem('roam_onboarded','true'); location.reload(); };
+    if (next) next.onclick = () => { localStorage.setItem('roam_onboarded','true'); location.reload(); };
   }
 });
 </script>

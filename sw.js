@@ -1,5 +1,5 @@
-// ROAM Service Worker v1.0.0
-const CACHE_NAME = 'roam-v1.0.0';
+// ROAM Service Worker v1.1.0
+const CACHE_NAME = 'roam-v1.1.0';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
