@@ -649,6 +649,30 @@ body.light{
 
 /* ── LEGAL TEXT ── */
 .legal-text{font-family:var(--mono);font-size:11px;color:var(--textSecondary);line-height:1.9;white-space:pre-wrap}
+/* ── AUTOCOMPLETE ── */
+.ac-wrap{position:relative;flex:1;}
+.ac-wrap .form-input{width:100%;}
+.ac-dropdown{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;
+  background:var(--bg2);border:1px solid var(--accent);
+  border-radius:10px;overflow:hidden;
+  z-index:500;max-height:240px;overflow-y:auto;
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  display:none;
+}
+.ac-dropdown.open{display:block;}
+.ac-item{
+  padding:12px 14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  transition:background 0.1s;
+}
+.ac-item:last-child{border-bottom:none;}
+.ac-item:active{background:var(--bg3);}
+.ac-item-left{display:flex;flex-direction:column;gap:2px;}
+.ac-city{font-size:13px;color:var(--textPrimary);}
+.ac-country{font-size:10px;color:var(--textDim);letter-spacing:1px;}
+.ac-code{font-family:var(--display);font-size:18px;color:var(--accent);letter-spacing:2px;}
 </style>
 </head>
 <body>
@@ -879,16 +903,24 @@ body.light{
         <!-- Flight Search Form -->
         <div id="flight-search-form" style="padding:16px 20px">
           <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px">
-            <div class="form-col">
+            <div class="ac-wrap">
               <label class="form-label">From</label>
-              <input class="form-input" id="fs-from" type="text" placeholder="SYD" value="Sydney (SYD)">
+              <input class="form-input" id="fs-from" type="text" placeholder="SYD" value="Sydney (SYD)"
+                oninput="acShow('fs-from','ac-from')"
+                onfocus="acShow('fs-from','ac-from')"
+                autocomplete="off" autocorrect="off" spellcheck="false">
+              <div class="ac-dropdown" id="ac-from"></div>
             </div>
-            <button class="swap-btn" onclick="swapAirports()" style="margin-bottom:1px">
+            <button class="swap-btn" onclick="swapAirports()" style="margin-bottom:1px;flex-shrink:0;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
             </button>
-            <div class="form-col">
+            <div class="ac-wrap">
               <label class="form-label">To</label>
-              <input class="form-input" id="fs-to" type="text" placeholder="e.g. Tokyo">
+              <input class="form-input" id="fs-to" type="text" placeholder="Anywhere"
+                oninput="acShow('fs-to','ac-to')"
+                onfocus="acShow('fs-to','ac-to')"
+                autocomplete="off" autocorrect="off" spellcheck="false">
+              <div class="ac-dropdown" id="ac-to"></div>
             </div>
           </div>
           <div class="form-row">
@@ -938,7 +970,13 @@ body.light{
           <div class="form-row">
             <div class="form-col">
               <label class="form-label">Destination</label>
-              <input class="form-input" id="ss-dest" type="text" placeholder="e.g. Byron Bay">
+              <div class="ac-wrap" style="flex:none;">
+                <input class="form-input" id="ss-dest" type="text" placeholder="e.g. Byron Bay, Bali"
+                  oninput="acShow('ss-dest','ac-stays')"
+                  onfocus="acShow('ss-dest','ac-stays')"
+                  autocomplete="off" autocorrect="off" spellcheck="false">
+                <div class="ac-dropdown" id="ac-stays"></div>
+              </div>
             </div>
           </div>
           <div class="form-row">
@@ -2618,6 +2656,158 @@ function saveApiSetting() {
 }
 
 function closeApiDialog() { document.getElementById('api-dialog').classList.remove('open'); }
+
+// ══════════════════════════════════════════════════
+// AUTOCOMPLETE
+// ══════════════════════════════════════════════════
+const AIRPORTS = [
+  // Australia
+  {code:'SYD',city:'Sydney',country:'Australia'},
+  {code:'MEL',city:'Melbourne',country:'Australia'},
+  {code:'BNE',city:'Brisbane',country:'Australia'},
+  {code:'PER',city:'Perth',country:'Australia'},
+  {code:'ADL',city:'Adelaide',country:'Australia'},
+  {code:'OOL',city:'Gold Coast',country:'Australia'},
+  {code:'CBR',city:'Canberra',country:'Australia'},
+  {code:'HBA',city:'Hobart',country:'Australia'},
+  {code:'DRW',city:'Darwin',country:'Australia'},
+  {code:'CNS',city:'Cairns',country:'Australia'},
+  {code:'TSV',city:'Townsville',country:'Australia'},
+  {code:'MKY',city:'Mackay',country:'Australia'},
+  {code:'BYN',city:'Byron Bay',country:'Australia'},
+  // New Zealand
+  {code:'AKL',city:'Auckland',country:'New Zealand'},
+  {code:'CHC',city:'Christchurch',country:'New Zealand'},
+  {code:'WLG',city:'Wellington',country:'New Zealand'},
+  {code:'ZQN',city:'Queenstown',country:'New Zealand'},
+  // Asia
+  {code:'NRT',city:'Tokyo Narita',country:'Japan'},
+  {code:'HND',city:'Tokyo Haneda',country:'Japan'},
+  {code:'OSA',city:'Osaka',country:'Japan'},
+  {code:'SIN',city:'Singapore',country:'Singapore'},
+  {code:'BKK',city:'Bangkok',country:'Thailand'},
+  {code:'HKT',city:'Phuket',country:'Thailand'},
+  {code:'CNX',city:'Chiang Mai',country:'Thailand'},
+  {code:'DPS',city:'Bali Denpasar',country:'Indonesia'},
+  {code:'CGK',city:'Jakarta',country:'Indonesia'},
+  {code:'KUL',city:'Kuala Lumpur',country:'Malaysia'},
+  {code:'MNL',city:'Manila',country:'Philippines'},
+  {code:'CEB',city:'Cebu',country:'Philippines'},
+  {code:'SGN',city:'Ho Chi Minh City',country:'Vietnam'},
+  {code:'HAN',city:'Hanoi',country:'Vietnam'},
+  {code:'DAD',city:'Da Nang',country:'Vietnam'},
+  {code:'REP',city:'Siem Reap',country:'Cambodia'},
+  {code:'PNH',city:'Phnom Penh',country:'Cambodia'},
+  {code:'RGN',city:'Yangon',country:'Myanmar'},
+  {code:'CMB',city:'Colombo',country:'Sri Lanka'},
+  {code:'MLE',city:'Maldives',country:'Maldives'},
+  {code:'HKG',city:'Hong Kong',country:'Hong Kong'},
+  {code:'TPE',city:'Taipei',country:'Taiwan'},
+  {code:'ICN',city:'Seoul Incheon',country:'South Korea'},
+  {code:'PUS',city:'Busan',country:'South Korea'},
+  {code:'DEL',city:'Delhi',country:'India'},
+  {code:'BOM',city:'Mumbai',country:'India'},
+  {code:'GOI',city:'Goa',country:'India'},
+  {code:'MAA',city:'Chennai',country:'India'},
+  {code:'DXB',city:'Dubai',country:'UAE'},
+  {code:'AUH',city:'Abu Dhabi',country:'UAE'},
+  {code:'DOH',city:'Doha',country:'Qatar'},
+  // Pacific
+  {code:'NAN',city:'Fiji Nadi',country:'Fiji'},
+  {code:'RAR',city:'Rarotonga',country:'Cook Islands'},
+  {code:'PPT',city:'Papeete Tahiti',country:'French Polynesia'},
+  {code:'APW',city:'Apia Samoa',country:'Samoa'},
+  {code:'TBU',city:'Tonga',country:'Tonga'},
+  {code:'VLI',city:'Vanuatu',country:'Vanuatu'},
+  {code:'HIR',city:'Honiara',country:'Solomon Islands'},
+  {code:'SUV',city:'Suva',country:'Fiji'},
+  // Europe
+  {code:'LHR',city:'London Heathrow',country:'UK'},
+  {code:'LGW',city:'London Gatwick',country:'UK'},
+  {code:'CDG',city:'Paris',country:'France'},
+  {code:'AMS',city:'Amsterdam',country:'Netherlands'},
+  {code:'FRA',city:'Frankfurt',country:'Germany'},
+  {code:'FCO',city:'Rome',country:'Italy'},
+  {code:'BCN',city:'Barcelona',country:'Spain'},
+  {code:'MAD',city:'Madrid',country:'Spain'},
+  {code:'ATH',city:'Athens',country:'Greece'},
+  {code:'ZRH',city:'Zurich',country:'Switzerland'},
+  {code:'VIE',city:'Vienna',country:'Austria'},
+  {code:'CPH',city:'Copenhagen',country:'Denmark'},
+  {code:'ARN',city:'Stockholm',country:'Sweden'},
+  // Americas
+  {code:'LAX',city:'Los Angeles',country:'USA'},
+  {code:'JFK',city:'New York',country:'USA'},
+  {code:'SFO',city:'San Francisco',country:'USA'},
+  {code:'LAS',city:'Las Vegas',country:'USA'},
+  {code:'HNL',city:'Honolulu',country:'USA'},
+  {code:'YVR',city:'Vancouver',country:'Canada'},
+  {code:'YYZ',city:'Toronto',country:'Canada'},
+  {code:'GRU',city:'São Paulo',country:'Brazil'},
+  {code:'EZE',city:'Buenos Aires',country:'Argentina'},
+  {code:'SCL',city:'Santiago',country:'Chile'},
+  // Africa
+  {code:'JNB',city:'Johannesburg',country:'South Africa'},
+  {code:'CPT',city:'Cape Town',country:'South Africa'},
+  {code:'NBO',city:'Nairobi',country:'Kenya'},
+  // Popular stay destinations (no airport code)
+  {code:'—',city:'Blue Mountains',country:'Australia',stayOnly:true},
+  {code:'—',city:'Hunter Valley',country:'Australia',stayOnly:true},
+  {code:'—',city:'Barossa Valley',country:'Australia',stayOnly:true},
+  {code:'—',city:'Byron Bay Hinterland',country:'Australia',stayOnly:true},
+  {code:'—',city:'Yarra Valley',country:'Australia',stayOnly:true},
+  {code:'—',city:'Margaret River',country:'Australia',stayOnly:true},
+  {code:'—',city:'Noosa',country:'Australia',stayOnly:true},
+  {code:'—',city:'Ubud',country:'Indonesia',stayOnly:true},
+  {code:'—',city:'Koh Samui',country:'Thailand',stayOnly:true},
+  {code:'—',city:'Chiang Rai',country:'Thailand',stayOnly:true},
+];
+
+function acSearch(query, stayMode = false) {
+  if (!query || query.length < 1) return [];
+  const q = query.toLowerCase();
+  return AIRPORTS
+    .filter(a => {
+      if (!stayMode && a.stayOnly) return false;
+      return (
+        a.city.toLowerCase().includes(q) ||
+        a.country.toLowerCase().includes(q) ||
+        a.code.toLowerCase().includes(q)
+      );
+    })
+    .slice(0, 6);
+}
+
+function acShow(inputId, dropdownId) {
+  const inp = document.getElementById(inputId);
+  const drop = document.getElementById(dropdownId);
+  if (!inp || !drop) return;
+  const stayMode = inputId === 'ss-dest';
+  const results = acSearch(inp.value, stayMode);
+  if (!results.length) { drop.classList.remove('open'); return; }
+  drop.innerHTML = results.map(a => `
+    <div class="ac-item" onclick="acSelect('${inputId}','${dropdownId}','${a.city} (${a.code})','${a.code}')">
+      <div class="ac-item-left">
+        <div class="ac-city">${a.city}</div>
+        <div class="ac-country">${a.country}</div>
+      </div>
+      ${a.code !== '—' ? `<div class="ac-code">${a.code}</div>` : ''}
+    </div>`).join('');
+  drop.classList.add('open');
+}
+
+function acSelect(inputId, dropdownId, label, code) {
+  const inp = document.getElementById(inputId);
+  if (inp) inp.value = code !== '—' ? label : label.replace(' (—)','');
+  document.getElementById(dropdownId).classList.remove('open');
+}
+
+// Close dropdowns when tapping outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ac-wrap')) {
+    document.querySelectorAll('.ac-dropdown').forEach(d => d.classList.remove('open'));
+  }
+});
 
 // ══════════════════════════════════════════════════
 // INIT
