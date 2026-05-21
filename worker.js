@@ -330,28 +330,58 @@ async function fetchSerpApi(from, to, depart, ret, adults, children, env) {
     });
   } catch (e) { console.log(`[ROAM] SerpApi error: ${e.message}`); return []; }
 }
+// Popular routes by home airport for last minute searches
+const POPULAR_ROUTES = {
+  SYD: ['MEL','BNE','PER','ADL','OOL','CNS','NRT','SIN','BKK','DPS'],
+  MEL: ['SYD','BNE','PER','ADL','OOL','NRT','SIN','BKK','DPS','HKG'],
+  BNE: ['SYD','MEL','PER','ADL','OOL','NRT','SIN','BKK','DPS','CNS'],
+  PER: ['SYD','MEL','BNE','ADL','SIN','DPS','BKK','KUL','HKG','NRT'],
+  ADL: ['SYD','MEL','BNE','PER','OOL','SIN','BKK','DPS','NRT','CNS'],
+};
+
 async function handleLastMinute(request, env, url) {
   const from = url.searchParams.get('from') || 'SYD';
   const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
-  const [r1, r2, r3] = await Promise.allSettled([
-    fetchIgnav(from, '', today, '', 2, 2, env),
-    fetchSearchApi(from, '', today, '', 2, 2, env),
-    fetchSerpApi(from, '', today, '', 2, 2, env),
-  ]);
+  // Get routes for this airport, fallback to SYD routes
+  const routes = POPULAR_ROUTES[from] || POPULAR_ROUTES['SYD'];
 
+  // Search today + tomorrow for each route, all in parallel
+  // Batch into groups of 5 to avoid rate limits
+  const dates = [today, tomorrow];
+  const searches = [];
+  for (const to of routes) {
+    for (const date of dates) {
+      searches.push({ to, date });
+    }
+  }
+
+  // Run all searches in parallel with Promise.allSettled
+  const results = await Promise.allSettled(
+    searches.map(({ to, date }) =>
+      fetchSerpApi(from, to, date, '', 2, 2, env)
+        .catch(() => fetchSearchApi(from, to, date, '', 2, 2, env))
+        .catch(() => fetchIgnav(from, to, date, '', 2, 2, env))
+        .catch(() => [])
+    )
+  );
+
+  // Merge all results
   const seen = new Set();
-  const merged = [
-    ...(r1.status === 'fulfilled' ? r1.value : []),
-    ...(r2.status === 'fulfilled' ? r2.value : []),
-    ...(r3.status === 'fulfilled' ? r3.value : []),
-  ].filter(f => {
-    const key = `${f.from}-${f.to}-${f.airline}-${f.price}`;
-    if (seen.has(key)) return false;
-    seen.add(key); return true;
-  }).sort((a, b) => a.price - b.price);
+  const flights = results
+    .flatMap(r => r.status === 'fulfilled' ? (r.value || []) : [])
+    .filter(f => {
+      if (!f.price || f.price <= 0) return false;
+      const key = `${f.from}-${f.to}-${f.airline}-${f.price}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => a.price - b.price)
+    .slice(0, 20); // top 20 cheapest
 
-  return json({ flights: merged });
+  return json({ flights, source: `${routes.length} routes × ${dates.length} dates` });
 }
 
 // ════════════════════════════════════════════════════════════

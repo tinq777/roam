@@ -1676,31 +1676,73 @@ function renderInspire() {
   }
 }
 
-function renderLastMinute() {
+async function renderLastMinute() {
   const fl = document.getElementById('lm-flights-list');
   const sl = document.getElementById('lm-stays-list');
+
   if (fl) {
-    fl.innerHTML = '';
-    MOCK_LM_FLIGHTS.forEach(f => {
-      const div = document.createElement('div');
-      div.className = 'lm-card fade-in';
-      div.innerHTML = `
-        <div class="lm-left">
-          <div class="lm-route">${f.from} → ${f.to}</div>
-          <div class="lm-meta">
-            <span class="card-tag tag-dim">${f.toCity}</span>
-            <span class="card-tag tag-red">${f.departs}</span>
-            <span class="card-tag tag-dim">${f.airline}</span>
+    fl.innerHTML = '<div style="padding:20px 0;color:var(--text2);font-size:12px;letter-spacing:1px">SCANNING ROUTES...</div>';
+    const workerUrl = getWorkerUrl();
+    try {
+      if (!workerUrl) throw new Error('no worker');
+      const resp = await fetch(`${workerUrl}/api/lastminute/flights?from=${STATE.airport || 'SYD'}`, {
+        headers: { 'X-Roam-Token': getSecretToken() }
+      });
+      if (!resp.ok) throw new Error('api error');
+      const data = await resp.json();
+      fl.innerHTML = '';
+      if (data.flights?.length) {
+        if (data.source) {
+          fl.innerHTML = `<div style="padding:4px 0 10px;font-size:10px;color:var(--green);font-weight:600;">✓ Live · ${data.flights.length} deals found</div>`;
+        }
+        data.flights.forEach(f => {
+          const div = document.createElement('div');
+          div.className = 'lm-card fade-in';
+          const dateStr = f.depart ? new Date(f.depart).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : 'Today';
+          div.innerHTML = `
+            <div class="lm-left">
+              <div class="lm-route">${f.from} → ${f.to}</div>
+              <div class="lm-meta" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+                <span class="card-tag tag-dim">${f.dest || f.to}</span>
+                <span class="card-tag tag-red">${dateStr}</span>
+                <span class="card-tag tag-dim">${f.airline}</span>
+                ${f.duration ? `<span class="card-tag tag-dim">${f.duration}</span>` : ''}
+              </div>
+            </div>
+            <div class="lm-right" style="text-align:right;">
+              <div class="lm-price">$${f.price}</div>
+              <div class="lm-drop">${f.stops || 'Direct'}</div>
+              <button style="margin-top:6px;padding:8px 14px;border-radius:10px;background:linear-gradient(135deg,var(--red),#cc2244);border:none;color:#fff;font-weight:700;font-size:13px;cursor:pointer;min-height:36px;" onclick="window.open('${f.bookUrl || 'https://flights.google.com'}','_blank')">BOOK</button>
+            </div>`;
+          fl.appendChild(div);
+        });
+      } else {
+        fl.innerHTML = '<div style="padding:16px;color:var(--amber);font-size:13px;background:var(--amber-dim);border:1px solid var(--amber);border-radius:12px;">No last minute deals found for today or tomorrow. Try searching specific routes.</div>';
+      }
+    } catch(e) {
+      fl.innerHTML = '<div style="padding:8px 0 12px;color:var(--amber);font-size:11px;">⚡ Using demo data</div>';
+      MOCK_LM_FLIGHTS.forEach(f => {
+        const div = document.createElement('div');
+        div.className = 'lm-card fade-in';
+        div.innerHTML = `
+          <div class="lm-left">
+            <div class="lm-route">${f.from} → ${f.to}</div>
+            <div class="lm-meta" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+              <span class="card-tag tag-dim">${f.toCity}</span>
+              <span class="card-tag tag-red">${f.departs}</span>
+              <span class="card-tag tag-dim">${f.airline}</span>
+            </div>
           </div>
-        </div>
-        <div class="lm-right">
-          <div class="lm-price">$${f.price}</div>
-          <div class="lm-drop">↓ ${f.drop}% off</div>
-          <button style="margin-top:6px;padding:6px 14px;border-radius:6px;background:var(--red);border:none;color:#fff;font-family:var(--display);font-size:14px;letter-spacing:1px;cursor:pointer;min-height:36px" onclick="window.open('${f.bookUrl}','_blank')">BOOK</button>
-        </div>`;
-      fl.appendChild(div);
-    });
+          <div class="lm-right" style="text-align:right;">
+            <div class="lm-price">$${f.price}</div>
+            <div class="lm-drop">↓ ${f.drop}% off</div>
+            <button style="margin-top:6px;padding:8px 14px;border-radius:10px;background:linear-gradient(135deg,var(--red),#cc2244);border:none;color:#fff;font-weight:700;font-size:13px;cursor:pointer;min-height:36px;" onclick="window.open('${f.bookUrl}','_blank')">BOOK</button>
+          </div>`;
+        fl.appendChild(div);
+      });
+    }
   }
+
   if (sl) {
     sl.innerHTML = '';
     MOCK_LM_STAYS.forEach(s => renderStayCard(s, sl));
