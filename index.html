@@ -239,8 +239,18 @@ body.light{
 
 /* ── MAIN CONTENT ── */
 #main{flex:1;overflow:hidden;position:relative}
-.screen{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none}
-.screen.active{display:block}
+.screen{
+  position:absolute;inset:0;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:none;
+  pointer-events:none;
+  visibility:hidden;
+}
+.screen.active{
+  display:block;
+  pointer-events:all;
+  visibility:visible;
+}
 
 /* ── BOTTOM NAV ── */
 #bottomnav{
