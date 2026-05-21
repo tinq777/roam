@@ -107,21 +107,40 @@ export default {
 // ════════════════════════════════════════════════════════════
 // FLIGHTS — Ignav + SearchAPI + SerpApi in parallel, merged by price
 // ════════════════════════════════════════════════════════════
+function extractCode(val) {
+  if (!val) return '';
+  // Match 3-letter IATA code in brackets: "Sydney (SYD)" → "SYD"
+  const m = val.match(/\(([A-Z]{3})\)/);
+  if (m) return m[1];
+  // Match standalone 3-letter code
+  const m2 = val.match(/\b([A-Z]{3})\b/);
+  if (m2) return m2[1];
+  return val.trim().toUpperCase().slice(0, 3);
+}
+
 async function handleFlights(request, env) {
   const body = await request.json();
   const { from = 'SYD', to, depart, ret, adults = 2, children = 2 } = body;
 
+  const fromCode = extractCode(from) || 'SYD';
+  const toCode = extractCode(to) || '';
+
+  console.log(`[ROAM] Flights: ${fromCode}→${toCode} depart=${depart} ret=${ret}`);
+
   const [ignavResult, searchApiResult, serpApiResult] = await Promise.allSettled([
-    fetchIgnav(from, to, depart, ret, adults, children, env),
-    fetchSearchApi(from, to, depart, ret, adults, children, env),
-    fetchSerpApi(from, to, depart, ret, adults, children, env),
+    fetchIgnav(fromCode, toCode, depart, ret, adults, children, env),
+    fetchSearchApi(fromCode, toCode, depart, ret, adults, children, env),
+    fetchSerpApi(fromCode, toCode, depart, ret, adults, children, env),
   ]);
 
-  const ignavFlights  = ignavResult.status === 'fulfilled'    ? ignavResult.value    : [];
+  console.log(`[ROAM] Ignav: ${ignavResult.status} count=${ignavResult.value?.length} err=${ignavResult.reason}`);
+  console.log(`[ROAM] SearchAPI: ${searchApiResult.status} count=${searchApiResult.value?.length} err=${searchApiResult.reason}`);
+  console.log(`[ROAM] SerpApi: ${serpApiResult.status} count=${serpApiResult.value?.length} err=${serpApiResult.reason}`);
+
+  const ignavFlights  = ignavResult.status === 'fulfilled'     ? ignavResult.value    : [];
   const searchFlights = searchApiResult.status === 'fulfilled' ? searchApiResult.value : [];
   const serpFlights   = serpApiResult.status === 'fulfilled'   ? serpApiResult.value   : [];
 
-  // Merge, deduplicate by route+airline+price, sort by price
   const seen = new Set();
   const merged = [...ignavFlights, ...searchFlights, ...serpFlights]
     .filter(f => {
@@ -133,16 +152,17 @@ async function handleFlights(request, env) {
     .sort((a, b) => a.price - b.price);
 
   const source = [
-    ignavFlights.length  ? 'Ignav'     : null,
-    searchFlights.length ? 'SearchAPI' : null,
-    serpFlights.length   ? 'SerpApi'   : null,
-  ].filter(Boolean).join(' + ') || 'none';
+    ignavFlights.length  ? `Ignav(${ignavFlights.length})`      : null,
+    searchFlights.length ? `SearchAPI(${searchFlights.length})` : null,
+    serpFlights.length   ? `SerpApi(${serpFlights.length})`     : null,
+  ].filter(Boolean).join('+') || 'none';
 
+  console.log(`[ROAM] Merged ${merged.length} flights, source=${source}`);
   return json({ flights: merged, source });
 }
 
 async function fetchIgnav(from, to, depart, ret, adults, children, env) {
-  if (!env.IGNAV_API_KEY) return [];
+  if (!env.IGNAV_API_KEY) { console.log('[ROAM] Ignav: no key'); return []; }
   try {
     const endpoint = ret ? 'round-trip' : 'one-way';
     const body = {
@@ -150,51 +170,55 @@ async function fetchIgnav(from, to, depart, ret, adults, children, env) {
       destination: to || 'anywhere',
       departure_date: depart,
       ...(ret ? { return_date: ret } : {}),
-      adults: parseInt(adults),
-      children: parseInt(children),
-      cabin_class: 'economy',
-      currency: 'AUD',
     };
+    console.log(`[ROAM] Ignav request: ${JSON.stringify(body)}`);
     const r = await fetch(`https://ignav.com/api/fares/${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Api-Key': env.IGNAV_API_KEY },
       body: JSON.stringify(body),
     });
+    const text = await r.text();
+    console.log(`[ROAM] Ignav response ${r.status}: ${text.slice(0, 200)}`);
     if (!r.ok) return [];
-    const data = await r.json();
+    const data = JSON.parse(text);
     return (data.itineraries || []).map(f => ({
       id: 'ig_' + (f.ignav_id || Math.random().toString(36).slice(2)),
       from: f.outbound?.segments?.[0]?.departure_airport || from,
       to: f.outbound?.segments?.at(-1)?.arrival_airport || to,
       dest: f.outbound?.segments?.at(-1)?.arrival_airport || to,
       price: Math.round(f.price?.amount || 0),
+      currency: f.price?.currency || 'USD',
       airline: f.outbound?.segments?.[0]?.operating_carrier_name || 'Unknown',
       duration: formatMins(f.outbound?.duration_minutes),
       stops: stopsLabel(f.outbound?.segments?.length),
       depart: f.outbound?.segments?.[0]?.departure_time_local?.slice(0,16) || depart,
-      url: `https://ignav.com/book/${f.ignav_id}`,
+      bookUrl: `https://ignav.com/api/fares/booking-links`,
+      ignav_id: f.ignav_id,
       source: 'ignav',
     }));
-  } catch (e) { return []; }
+  } catch (e) { console.log(`[ROAM] Ignav error: ${e.message}`); return []; }
 }
 
 async function fetchSearchApi(from, to, depart, ret, adults, children, env) {
-  if (!env.SEARCHAPI_KEY) return [];
+  if (!env.SEARCHAPI_KEY) { console.log('[ROAM] SearchAPI: no key'); return []; }
   try {
     const params = new URLSearchParams({
       engine: 'google_flights',
       departure_id: from,
       arrival_id: to || '',
       outbound_date: depart || '',
-      ...(ret ? { return_date: ret } : { type: '2' }), // type 2 = one-way
+      ...(ret ? { return_date: ret, type: '1' } : { type: '2' }),
       adults: String(adults),
       children: String(children),
       currency: 'AUD',
       api_key: env.SEARCHAPI_KEY,
     });
+    console.log(`[ROAM] SearchAPI: ${from}→${to} ${depart}`);
     const r = await fetch(`https://www.searchapi.io/api/v1/search?${params}`);
+    const text = await r.text();
+    console.log(`[ROAM] SearchAPI response ${r.status}: ${text.slice(0,200)}`);
     if (!r.ok) return [];
-    const data = await r.json();
+    const data = JSON.parse(text);
     const raw = [...(data.best_flights || []), ...(data.other_flights || [])];
     return raw.map((f, i) => ({
       id: 'sa_' + i,
@@ -206,14 +230,14 @@ async function fetchSearchApi(from, to, depart, ret, adults, children, env) {
       duration: formatMins(f.total_duration),
       stops: stopsLabel(f.flights?.length),
       depart: f.flights?.[0]?.departure_airport?.time || depart,
-      url: 'https://flights.google.com',
+      bookUrl: 'https://flights.google.com',
       source: 'searchapi',
     }));
-  } catch (e) { return []; }
+  } catch (e) { console.log(`[ROAM] SearchAPI error: ${e.message}`); return []; }
 }
 
 async function fetchSerpApi(from, to, depart, ret, adults, children, env) {
-  if (!env.SERPAPI_KEY) return [];
+  if (!env.SERPAPI_KEY) { console.log('[ROAM] SerpApi: no key'); return []; }
   try {
     const params = new URLSearchParams({
       engine: 'google_flights',
@@ -227,9 +251,12 @@ async function fetchSerpApi(from, to, depart, ret, adults, children, env) {
       hl: 'en',
       api_key: env.SERPAPI_KEY,
     });
+    console.log(`[ROAM] SerpApi: ${from}→${to} ${depart}`);
     const r = await fetch(`https://serpapi.com/search?${params}`);
+    const text = await r.text();
+    console.log(`[ROAM] SerpApi response ${r.status}: ${text.slice(0,200)}`);
     if (!r.ok) return [];
-    const data = await r.json();
+    const data = JSON.parse(text);
     const raw = [...(data.best_flights || []), ...(data.other_flights || [])];
     return raw.map((f, i) => ({
       id: 'sp_' + i,
@@ -241,10 +268,10 @@ async function fetchSerpApi(from, to, depart, ret, adults, children, env) {
       duration: formatMins(f.total_duration),
       stops: stopsLabel(f.flights?.length),
       depart: f.flights?.[0]?.departure_airport?.time || depart,
-      url: 'https://flights.google.com',
+      bookUrl: 'https://flights.google.com',
       source: 'serpapi',
     }));
-  } catch (e) { return []; }
+  } catch (e) { console.log(`[ROAM] SerpApi error: ${e.message}`); return []; }
 }
 async function handleLastMinute(request, env, url) {
   const from = url.searchParams.get('from') || 'SYD';
