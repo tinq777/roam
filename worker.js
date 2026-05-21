@@ -148,6 +148,12 @@ export default {
 // ════════════════════════════════════════════════════════════
 // FLIGHTS — Ignav + SearchAPI + SerpApi in parallel, merged by price
 // ════════════════════════════════════════════════════════════
+// Build a Google Flights URL that actually pre-fills the search correctly
+// Uses the hash fragment format which Google reliably parses
+function buildGoogleFlightsUrl(from, to, date) {
+  return `https://www.google.com/travel/flights?hl=en&gl=au&curr=AUD#flt=${from}.${to}.${date};c:AUD;e:1;sd:1;t:f`;
+}
+
 function extractCode(val) {
   if (!val) return '';
   // Match 3-letter IATA code in brackets: "Sydney (SYD)" → "SYD"
@@ -245,7 +251,7 @@ async function fetchIgnav(from, to, depart, ret, adults, children, env) {
         duration: formatMins(f.outbound?.duration_minutes),
         stops: stopsLabel(f.outbound?.segments?.length),
         depart: (f.outbound?.segments?.[0]?.departure_time_local || depart || '').slice(0,16),
-        bookUrl: googleUrl,
+        bookUrl: buildGoogleFlightsUrl(fromAirport, toAirport, departDate),
         source: 'ignav',
       };
     });
@@ -274,20 +280,25 @@ async function fetchSearchApi(from, to, depart, ret, adults, children, env) {
     if (!r.ok) return [];
     const data = JSON.parse(text);
     const raw = [...(data.best_flights || []), ...(data.other_flights || [])];
-    return raw.map((f, i) => ({
-      id: 'sa_' + i,
-      from: f.flights?.[0]?.departure_airport?.id || from,
-      to: f.flights?.at(-1)?.arrival_airport?.id || to,
-      dest: f.flights?.at(-1)?.arrival_airport?.name || to,
-      price: Math.round(f.price || 0),
-      airline: f.flights?.[0]?.airline || 'Unknown',
-      airlineLogo: f.flights?.[0]?.airline_logo || '',
-      duration: formatMins(f.total_duration),
-      stops: stopsLabel(f.flights?.length),
-      depart: f.flights?.[0]?.departure_airport?.time || depart,
-      bookUrl: 'https://flights.google.com',
-      source: 'searchapi',
-    }));
+    return raw.map((f, i) => {
+      const fromCode = f.flights?.[0]?.departure_airport?.id || from;
+      const toCode = f.flights?.at(-1)?.arrival_airport?.id || to;
+      const departDate = (f.flights?.[0]?.departure_airport?.time || depart || '').slice(0, 10);
+      return {
+        id: 'sa_' + i,
+        from: fromCode,
+        to: toCode,
+        dest: f.flights?.at(-1)?.arrival_airport?.name || to,
+        price: Math.round(f.price || 0),
+        airline: f.flights?.[0]?.airline || 'Unknown',
+        airlineLogo: f.flights?.[0]?.airline_logo || '',
+        duration: formatMins(f.total_duration),
+        stops: stopsLabel(f.flights?.length),
+        depart: f.flights?.[0]?.departure_airport?.time || depart,
+        bookUrl: buildGoogleFlightsUrl(fromCode, toCode, departDate),
+        source: 'searchapi',
+      };
+    });
   } catch (e) { console.log(`[ROAM] SearchAPI error: ${e.message}`); return []; }
 }
 
@@ -315,13 +326,17 @@ async function fetchSerpApi(from, to, depart, ret, adults, children, env) {
     if (!r.ok) return [];
     const data = JSON.parse(text);
     const raw = [...(data.best_flights || []), ...(data.other_flights || [])];
+    // SerpApi provides a google_flights_url in search_metadata — use it as base
+    const gfUrl = data.search_metadata?.google_flights_url;
     return raw.map((f, i) => {
-      // total_duration is in minutes for SerpApi
       const totalMins = f.total_duration || f.flights?.reduce((s, fl) => s + (fl.duration || 0), 0) || 0;
+      const fromCode = f.flights?.[0]?.departure_airport?.id || from;
+      const toCode = f.flights?.at(-1)?.arrival_airport?.id || to;
+      const departDate = (f.flights?.[0]?.departure_airport?.time || depart || '').slice(0, 10);
       return {
         id: 'sp_' + i,
-        from: f.flights?.[0]?.departure_airport?.id || from,
-        to: f.flights?.at(-1)?.arrival_airport?.id || to,
+        from: fromCode,
+        to: toCode,
         dest: f.flights?.at(-1)?.arrival_airport?.name || to,
         price: Math.round(f.price || 0),
         airline: f.flights?.[0]?.airline || 'Unknown',
@@ -329,7 +344,8 @@ async function fetchSerpApi(from, to, depart, ret, adults, children, env) {
         duration: formatMins(totalMins),
         stops: stopsLabel(f.flights?.length),
         depart: f.flights?.[0]?.departure_airport?.time || depart,
-        bookUrl: 'https://flights.google.com',
+        // Use SerpApi's actual google_flights_url if available, else build one
+        bookUrl: gfUrl || buildGoogleFlightsUrl(fromCode, toCode, departDate),
         source: 'serpapi',
       };
     });
