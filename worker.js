@@ -148,10 +148,25 @@ export default {
 // ════════════════════════════════════════════════════════════
 // FLIGHTS — Ignav + SearchAPI + SerpApi in parallel, merged by price
 // ════════════════════════════════════════════════════════════
-// Build a Google Flights URL that actually pre-fills the search correctly
-// Uses the hash fragment format which Google reliably parses
-function buildGoogleFlightsUrl(from, to, date) {
-  return `https://www.google.com/travel/flights?hl=en&gl=au&curr=AUD#flt=${from}.${to}.${date};c:AUD;e:1;sd:1;t:f`;
+// Build a Skyscanner deep link — reliable date pre-fill, works for AU
+function buildBookingUrl(from, to, date, adults = 2, children = 2) {
+  // Skyscanner format: YYMMDD
+  let dateCode = '';
+  try {
+    const d = new Date(date);
+    if (!isNaN(d)) {
+      const yy = String(d.getFullYear()).slice(2);
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      dateCode = `${yy}${mm}${dd}`;
+    }
+  } catch(e) {}
+
+  if (dateCode) {
+    return `https://www.skyscanner.com.au/transport/flights/${from.toLowerCase()}/${to.toLowerCase()}/${dateCode}/?adults=${adults}&children=${children}&currency=AUD`;
+  }
+  // Fallback to Google Flights generic search
+  return `https://www.google.com/travel/flights?hl=en&gl=au&curr=AUD`;
 }
 
 function extractCode(val) {
@@ -251,7 +266,7 @@ async function fetchIgnav(from, to, depart, ret, adults, children, env) {
         duration: formatMins(f.outbound?.duration_minutes),
         stops: stopsLabel(f.outbound?.segments?.length),
         depart: (f.outbound?.segments?.[0]?.departure_time_local || depart || '').slice(0,16),
-        bookUrl: buildGoogleFlightsUrl(fromAirport, toAirport, departDate),
+        bookUrl: buildBookingUrl(fromAirport, toAirport, departDate),
         source: 'ignav',
       };
     });
@@ -295,7 +310,7 @@ async function fetchSearchApi(from, to, depart, ret, adults, children, env) {
         duration: formatMins(f.total_duration),
         stops: stopsLabel(f.flights?.length),
         depart: f.flights?.[0]?.departure_airport?.time || depart,
-        bookUrl: buildGoogleFlightsUrl(fromCode, toCode, departDate),
+        bookUrl: buildBookingUrl(fromCode, toCode, departDate),
         source: 'searchapi',
       };
     });
@@ -344,8 +359,8 @@ async function fetchSerpApi(from, to, depart, ret, adults, children, env) {
         duration: formatMins(totalMins),
         stops: stopsLabel(f.flights?.length),
         depart: f.flights?.[0]?.departure_airport?.time || depart,
-        // Use SerpApi's actual google_flights_url if available, else build one
-        bookUrl: gfUrl || buildGoogleFlightsUrl(fromCode, toCode, departDate),
+        // Build Skyscanner URL with correct date — more reliable than google_flights_url
+        bookUrl: buildBookingUrl(fromCode, toCode, departDate),
         source: 'serpapi',
       };
     });

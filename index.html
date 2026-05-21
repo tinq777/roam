@@ -1523,9 +1523,9 @@ function renderFlightCard(f, container) {
   const fromCode = f.from || '';
   const toCode = f.to || '';
   const dateCode = (departRaw || '').slice(0, 10);
-  const bookUrl = f.bookUrl && f.bookUrl.startsWith('https://') && !f.bookUrl.includes('ignav.com/api')
+  const bookUrl = f.bookUrl && f.bookUrl.startsWith('https://') && !f.bookUrl.includes('ignav.com/api') && !f.bookUrl.includes('flights.google.com')
     ? f.bookUrl
-    : `https://www.google.com/travel/flights/search?q=Flights+${fromCode}+to+${toCode}+on+${dateCode}&hl=en`;
+    : `https://www.skyscanner.com.au/transport/flights/${(f.from||'').toLowerCase()}/${(f.to||'').toLowerCase()}/${dateCode}/?adults=2&currency=AUD`;
 
   const stopsLabel = typeof f.stops === 'number'
     ? (f.stops === 0 ? 'Direct' : `${f.stops} stop${f.stops > 1 ? 's' : ''}`)
