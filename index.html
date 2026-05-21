@@ -1770,6 +1770,11 @@ async function searchFlights() {
   const aiQuery = document.getElementById('fs-ai').value;
   const from = document.getElementById('fs-from').value;
   const to = document.getElementById('fs-to').value;
+  const to = document.getElementById('fs-to').value.trim();
+  if (!to || to.toLowerCase() === 'anywhere') {
+    results.innerHTML = '<div style="padding:16px;color:var(--amber);font-size:13px;background:var(--amber-dim);border:1px solid var(--amber);border-radius:12px;">Please enter a destination to search flights.</div>';
+    return;
+  }
   const depart = document.getElementById('fs-depart').value;
   const ret = _tripType === 'return' ? document.getElementById('fs-return').value : '';
   const adults = parseInt(document.getElementById('fs-adults')?.textContent) || STATE.adults || 1;

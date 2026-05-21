@@ -125,21 +125,28 @@ async function handleFlights(request, env) {
   const fromCode = extractCode(from) || 'SYD';
   const toCode = extractCode(to) || '';
 
-  console.log(`[ROAM] Flights: ${fromCode}→${toCode} depart=${depart} ret=${ret}`);
+  console.log(`[ROAM] Flights: ${fromCode}→${toCode || 'ANY'} depart=${depart} ret=${ret} adults=${adults} children=${children}`);
 
-  const [ignavResult, searchApiResult, serpApiResult] = await Promise.allSettled([
-    fetchIgnav(fromCode, toCode, depart, ret, adults, children, env),
-    fetchSearchApi(fromCode, toCode, depart, ret, adults, children, env),
-    fetchSerpApi(fromCode, toCode, depart, ret, adults, children, env),
-  ]);
+  // SerpApi + SearchAPI need a destination — skip them if toCode is empty
+  const tasks = [fetchIgnav(fromCode, toCode, depart, ret, adults, children, env)];
+  if (toCode) {
+    tasks.push(fetchSearchApi(fromCode, toCode, depart, ret, adults, children, env));
+    tasks.push(fetchSerpApi(fromCode, toCode, depart, ret, adults, children, env));
+  } else {
+    console.log('[ROAM] No destination — skipping SearchAPI + SerpApi');
+    tasks.push(Promise.resolve([]));
+    tasks.push(Promise.resolve([]));
+  }
 
-  console.log(`[ROAM] Ignav: ${ignavResult.status} count=${ignavResult.value?.length} err=${ignavResult.reason}`);
-  console.log(`[ROAM] SearchAPI: ${searchApiResult.status} count=${searchApiResult.value?.length} err=${searchApiResult.reason}`);
-  console.log(`[ROAM] SerpApi: ${serpApiResult.status} count=${serpApiResult.value?.length} err=${serpApiResult.reason}`);
+  const [ignavResult, searchApiResult, serpApiResult] = await Promise.allSettled(tasks);
 
-  const ignavFlights  = ignavResult.status === 'fulfilled'     ? ignavResult.value    : [];
-  const searchFlights = searchApiResult.status === 'fulfilled' ? searchApiResult.value : [];
-  const serpFlights   = serpApiResult.status === 'fulfilled'   ? serpApiResult.value   : [];
+  console.log(`[ROAM] Ignav: ${ignavResult.status} count=${ignavResult.value?.length ?? 0} err=${ignavResult.reason?.message}`);
+  console.log(`[ROAM] SearchAPI: ${searchApiResult.status} count=${searchApiResult.value?.length ?? 0} err=${searchApiResult.reason?.message}`);
+  console.log(`[ROAM] SerpApi: ${serpApiResult.status} count=${serpApiResult.value?.length ?? 0} err=${serpApiResult.reason?.message}`);
+
+  const ignavFlights  = ignavResult.status === 'fulfilled'     ? (ignavResult.value || [])     : [];
+  const searchFlights = searchApiResult.status === 'fulfilled' ? (searchApiResult.value || []) : [];
+  const serpFlights   = serpApiResult.status === 'fulfilled'   ? (serpApiResult.value || [])   : [];
 
   const seen = new Set();
   const merged = [...ignavFlights, ...searchFlights, ...serpFlights]
