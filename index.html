@@ -2534,49 +2534,43 @@ async function runWorkerTest() {
   const dot = document.getElementById('worker-status-dot');
   const lbl = document.getElementById('worker-status-label');
   const btn = document.getElementById('test-worker-btn');
-  dot.style.background = 'var(--amber)'; lbl.textContent = 'Testing…'; if(btn) btn.disabled = true;
+  if (dot) dot.style.background = 'var(--amber)';
+  if (lbl) lbl.textContent = 'Testing…';
+  if (btn) { btn.style.borderColor = 'var(--amber)'; btn.style.color = 'var(--amber)'; btn.disabled = true; }
 
   try {
-    // Step 1 — check worker is reachable
-    const health = await fetch(url + '/health', { signal: AbortSignal.timeout(5000) });
-    if (!health.ok) throw new Error('Worker unreachable');
+    // Step 1 — reachability
+    const health = await fetch(url + '/health', { signal: AbortSignal.timeout(6000) });
+    if (!health.ok) throw new Error('health_fail');
 
-    // Step 2 — check token is valid (ping a lightweight authenticated endpoint)
+    // Step 2 — token check via /api/ping
     const token = getSecretToken();
-    if (token) {
-      const auth = await fetch(url + '/health', {
-        headers: { 'X-Roam-Token': token },
-        signal: AbortSignal.timeout(5000)
-      });
-      // Worker returns 200 for health regardless of token (health is public)
-      // so do a real token check with a POST to /api/ping
-      const ping = await fetch(url + '/api/ping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Roam-Token': token },
-        body: '{}',
-        signal: AbortSignal.timeout(5000)
-      });
-      // 401 = bad token, 404 = no ping route but token passed (still ok), anything else ok
-      if (ping.status === 401) {
-        STATE._workerOnline = false;
-        STATE._tokenError = true;
-        STATE._workerTested = true;
-        const dot2 = document.getElementById('worker-status-dot');
-        const lbl2 = document.getElementById('worker-status-label');
-        if(dot2) dot2.style.background = 'var(--red)';
-        if(lbl2) lbl2.textContent = 'Bad Token';
-        if(btn) { btn.style.borderColor='var(--red)'; btn.style.color='var(--red)'; btn.disabled = false; }
-        return;
-      }
+    const ping = await fetch(url + '/api/ping', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Roam-Token': token || '' },
+      body: '{}',
+      signal: AbortSignal.timeout(6000)
+    });
+
+    if (ping.status === 401) {
+      if (dot) dot.style.background = 'var(--red)';
+      if (lbl) lbl.textContent = 'Bad Token';
+      if (btn) { btn.style.borderColor = 'var(--red)'; btn.style.color = 'var(--red)'; }
+      STATE._workerOnline = false;
+    } else {
+      STATE._workerOnline = true;
+      STATE._workerTested = true;
+      updateWorkerStatusDot();
     }
-    STATE._workerOnline = true;
-    STATE._tokenError = false;
   } catch(e) {
+    console.error('Worker test failed:', e.message, 'URL:', url);
     STATE._workerOnline = false;
+    STATE._workerTested = true;
+    if (dot) dot.style.background = 'var(--red)';
+    if (lbl) lbl.textContent = url.includes('http') ? 'Timeout' : 'Bad URL';
+    if (btn) { btn.style.borderColor = 'var(--red)'; btn.style.color = 'var(--red)'; }
   }
-  STATE._workerTested = true;
-  if(btn) btn.disabled = false;
-  updateWorkerStatusDot();
+  if (btn) btn.disabled = false;
 }
 
 function editApiSetting(key) {
