@@ -41,27 +41,11 @@ function isAuthorized(request, env) {
 
 export default {
   async fetch(request, env) {
-    // CORS preflight — no auth needed
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: CORS_HEADERS });
-    }
-
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Health check — no auth needed (used by Test button)
-    if (path === '/health' || path === '/api/health') {
-      return json({ status: 'ok', version: '2.0.0', app: 'ROAM' });
-    }
-
-    // Ping — GET request, requires token, used by Test button
-    if (path === '/api/ping') {
-      if (!isAuthorized(request, env)) return unauthorized();
-      return json({ status: 'ok', auth: 'valid' });
-    }
-
-    // Debug — no token needed, safe (no API keys exposed, just tests connectivity)
-    // Usage: /api/debug?from=SYD&to=MEL&depart=2026-05-28
+    // Debug — PUBLIC, no auth, no token needed
+    // Visit: /api/debug?from=SYD&to=MEL&depart=2026-05-28
     if (path === '/api/debug') {
       const from = url.searchParams.get('from') || 'SYD';
       const to = url.searchParams.get('to') || 'MEL';
@@ -77,7 +61,7 @@ export default {
           signal: AbortSignal.timeout(8000)
         });
         const text = await r.text();
-        results.ignav = { status: r.status, ok: r.ok, keySet: !!env.IGNAV_API_KEY, preview: text.slice(0, 300) };
+        results.ignav = { status: r.status, ok: r.ok, keySet: !!env.IGNAV_API_KEY, preview: text.slice(0, 400) };
       } catch(e) { results.ignav = { error: e.message, keySet: !!env.IGNAV_API_KEY }; }
 
       // Test SearchAPI
@@ -85,7 +69,7 @@ export default {
         const params = new URLSearchParams({ engine:'google_flights', departure_id:from, arrival_id:to, outbound_date:depart, flight_type:'one_way', adults:'1', currency:'AUD', api_key: env.SEARCHAPI_KEY || 'NOT_SET' });
         const r = await fetch(`https://www.searchapi.io/api/v1/search?${params}`, { signal: AbortSignal.timeout(8000) });
         const text = await r.text();
-        results.searchapi = { status: r.status, ok: r.ok, keySet: !!env.SEARCHAPI_KEY, preview: text.slice(0, 300) };
+        results.searchapi = { status: r.status, ok: r.ok, keySet: !!env.SEARCHAPI_KEY, preview: text.slice(0, 400) };
       } catch(e) { results.searchapi = { error: e.message, keySet: !!env.SEARCHAPI_KEY }; }
 
       // Test SerpApi
@@ -93,10 +77,28 @@ export default {
         const params = new URLSearchParams({ engine:'google_flights', departure_id:from, arrival_id:to, outbound_date:depart, type:'2', adults:'1', currency:'AUD', hl:'en', api_key: env.SERPAPI_KEY || 'NOT_SET' });
         const r = await fetch(`https://serpapi.com/search?${params}`, { signal: AbortSignal.timeout(8000) });
         const text = await r.text();
-        results.serpapi = { status: r.status, ok: r.ok, keySet: !!env.SERPAPI_KEY, preview: text.slice(0, 300) };
+        results.serpapi = { status: r.status, ok: r.ok, keySet: !!env.SERPAPI_KEY, preview: text.slice(0, 400) };
       } catch(e) { results.serpapi = { error: e.message, keySet: !!env.SERPAPI_KEY }; }
 
-      return json({ debug: true, params: { from, to, depart }, results });
+      return new Response(JSON.stringify({ debug: true, params: { from, to, depart }, results }, null, 2), {
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
+
+    // CORS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
+    // Health check — no auth needed (used by Test button)
+    if (path === '/health' || path === '/api/health') {
+      return json({ status: 'ok', version: '2.0.0', app: 'ROAM' });
+    }
+
+    // Ping — GET request, requires token, used by Test button
+    if (path === '/api/ping') {
+      if (!isAuthorized(request, env)) return unauthorized();
+      return json({ status: 'ok', auth: 'valid' });
     }
 
     // All other routes require token
