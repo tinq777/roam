@@ -822,32 +822,52 @@ body{
 
       <!-- Inspire Tab -->
       <div id="hunt-inspire" style="display:none" class="scroll-content">
-        <div style="padding:16px 20px 0">
-          <div style="font-family:var(--display);font-size:32px;letter-spacing:3px;color:var(--textPrimary)">INSPIRE ME</div>
-          <div style="font-size:11px;color:var(--textDim);letter-spacing:2px;margin-bottom:12px">BEST DEALS FROM SYD RIGHT NOW</div>
-        </div>
 
-        <!-- Flights / Stays toggle -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);margin-bottom:0;">
-          <button id="inspire-flights-btn" onclick="switchInspireType('flights')" style="padding:12px;background:none;border:none;border-bottom:2px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:11px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>
-            FLIGHTS
-          </button>
-          <button id="inspire-stays-btn" onclick="switchInspireType('stays')" style="padding:12px;background:none;border:none;border-bottom:2px solid transparent;color:var(--textDim);font-family:var(--mono);font-size:11px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            STAYS
-          </button>
-        </div>
-
-        <div style="padding:16px 20px 0">
-          <!-- Period filter -->
-          <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">
-            <button class="chart-tab active" id="inspire-period-weekend" onclick="switchInspireFilter('weekend',this)">This Weekend</button>
-            <button class="chart-tab" id="inspire-period-month" onclick="switchInspireFilter('month',this)">Next Month</button>
-            <button class="chart-tab" id="inspire-period-anytime" onclick="switchInspireFilter('anytime',this)">Anytime</button>
+        <!-- Header -->
+        <div style="padding:20px 20px 0;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:22px;font-weight:800;letter-spacing:0.5px;color:var(--text0);">Inspire Me</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px;">What's worth booking right now</div>
           </div>
-          <div id="inspire-list"></div>
+          <button onclick="changeInspireAirport()" id="inspire-airport-btn" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:100px;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;min-height:40px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span id="inspire-airport-label">SYD</span>
+          </button>
         </div>
+
+        <!-- Period tabs -->
+        <div style="display:flex;gap:8px;padding:14px 20px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;">
+          <button class="chart-tab active" id="inspire-period-weekend" onclick="switchInspireFilter('weekend',this)">This Weekend</button>
+          <button class="chart-tab" id="inspire-period-month" onclick="switchInspireFilter('month',this)">Next Month</button>
+          <button class="chart-tab" id="inspire-period-anytime" onclick="switchInspireFilter('anytime',this)">Anytime</button>
+        </div>
+
+        <!-- Weekend: Stays near home -->
+        <div id="inspire-weekend-stays" style="padding:0 20px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+            <div style="width:3px;height:18px;background:var(--green);border-radius:2px;"></div>
+            <div style="font-size:12px;font-weight:700;letter-spacing:1px;color:var(--text1);text-transform:uppercase;">Weekend Escapes</div>
+            <div style="font-size:11px;color:var(--text2);">Fri–Sun · Near you</div>
+          </div>
+          <div id="inspire-weekend-stays-list"></div>
+        </div>
+
+        <!-- Weekend: Cheap flights -->
+        <div id="inspire-weekend-flights" style="padding:0 20px;margin-top:4px;display:none;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+            <div style="width:3px;height:18px;background:var(--accent);border-radius:2px;"></div>
+            <div style="font-size:12px;font-weight:700;letter-spacing:1px;color:var(--text1);text-transform:uppercase;">Cheap Weekend Flights</div>
+            <div style="font-size:11px;color:var(--text2);">Fri–Sun</div>
+          </div>
+          <div id="inspire-weekend-flights-list"></div>
+        </div>
+
+        <!-- Month/Anytime: Destination cards with flight + stay -->
+        <div id="inspire-destinations" style="padding:0 20px;display:none;">
+          <div id="inspire-destinations-list"></div>
+        </div>
+
+        <div style="height:20px;"></div>
       </div>
     </div>
 
@@ -1431,12 +1451,6 @@ function switchWatchTab(tab, btn) {
   renderWatchlist();
 }
 
-function switchInspireFilter(filter, btn) {
-  _inspirePeriod = filter;
-  document.querySelectorAll('[id^="inspire-period-"]').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderInspire();
-}
 
 // ══════════════════════════════════════════════════
 // MOCK DATA
@@ -1456,25 +1470,39 @@ const MOCK_STAYS = [
   { id:'s4', title:'Countryside Farmhouse · Hunter Valley', type:'countryside', price:350, avg:380, drop:8, beds:3, guests:6, nights:2, source:'airbnb', bookUrl:'https://www.airbnb.com.au', img:'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=600&q=80' },
 ];
 
-const MOCK_INSPIRE = [
-  { city:'Bangkok', country:'Thailand', code:'BKK', price:389, img:'https://images.unsplash.com/photo-1508009603885-50cf7c579365?w=600&q=80', drop:18, tag:'HOT DEAL' },
-  { city:'Bali', country:'Indonesia', code:'DPS', price:312, img:'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=600&q=80', drop:20, tag:'POPULAR' },
-  { city:'Singapore', country:'Singapore', code:'SIN', price:298, img:'https://images.unsplash.com/photo-1525625293386-3f8f99389edd?w=600&q=80', drop:31, tag:'BEST VALUE' },
-  { city:'Tokyo', country:'Japan', code:'NRT', price:742, img:'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=600&q=80', drop:-5, tag:'' },
-  { city:'Queenstown', country:'New Zealand', code:'ZQN', price:410, img:'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=600&q=80', drop:15, tag:'ESCAPE' },
-  { city:'Phuket', country:'Thailand', code:'HKT', price:445, img:'https://images.unsplash.com/photo-1589394815804-964ed0be2eb5?w=600&q=80', drop:12, tag:'' },
-];
+const WEEKEND_ESCAPES = {
+  SYD: [
+    { id:'we1', title:'Clifftop Cabin', subtitle:'Blue Mountains, NSW', desc:'2hr drive · Hot tub · Mountain views', beds:2, guests:4, pricePerNight:285, trend:'down', trendPct:12, img:'https://images.unsplash.com/photo-1510798831971-661eb04b3739?w=600&q=80', bookUrl:'https://www.airbnb.com.au/s/Blue-Mountains--NSW/homes', tag:'DEAL' },
+    { id:'we2', title:'Beachfront House', subtitle:'Byron Bay, NSW', desc:'2hr drive · Ocean views · Private access', beds:3, guests:6, pricePerNight:420, trend:'up', trendPct:8, img:'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=600&q=80', bookUrl:'https://www.airbnb.com.au/s/Byron-Bay--NSW/homes', tag:'POPULAR' },
+    { id:'we3', title:'Treehouse Retreat', subtitle:'Hunter Valley, NSW', desc:'2.5hr drive · Surrounded by vines · Spa', beds:2, guests:4, pricePerNight:245, trend:'down', trendPct:18, img:'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80', bookUrl:'https://www.airbnb.com.au/s/Hunter-Valley--NSW/homes', tag:'DEAL' },
+    { id:'we4', title:'Heritage Farmhouse', subtitle:'Bangalow, NSW', desc:'2hr drive · Working farm · Stargazing', beds:3, guests:6, pricePerNight:310, trend:'same', trendPct:0, img:'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=600&q=80', bookUrl:'https://www.airbnb.com.au/s/Bangalow--NSW/homes', tag:'' },
+    { id:'we5', title:'Lakeside Cottage', subtitle:'Southern Highlands, NSW', desc:'1.5hr drive · Fireplace · Private jetty', beds:2, guests:4, pricePerNight:265, trend:'down', trendPct:9, img:'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=600&q=80', bookUrl:'https://www.airbnb.com.au/s/Southern-Highlands--NSW/homes', tag:'DEAL' },
+    { id:'we6', title:'Beach House', subtitle:'Jervis Bay, NSW', desc:'2.5hr drive · Whitest sand in the world', beds:3, guests:6, pricePerNight:395, trend:'up', trendPct:5, img:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80', bookUrl:'https://www.airbnb.com.au/s/Jervis-Bay--NSW/homes', tag:'' },
+  ],
+  MEL: [
+    { id:'we7', title:'Winery Retreat', subtitle:'Yarra Valley, VIC', desc:'1hr drive · Private vineyard · Cellar door', beds:2, guests:4, pricePerNight:295, trend:'down', trendPct:14, img:'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80', bookUrl:'https://www.airbnb.com.au/s/Yarra-Valley--VIC/homes', tag:'DEAL' },
+    { id:'we8', title:'Coastal Escape', subtitle:'Mornington Peninsula, VIC', desc:'1.5hr drive · Hot springs · Ocean views', beds:3, guests:6, pricePerNight:345, trend:'down', trendPct:7, img:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80', bookUrl:'https://www.airbnb.com.au/s/Mornington-Peninsula--VIC/homes', tag:'TRENDING' },
+    { id:'we9', title:'Alpine Cabin', subtitle:'Mount Buller, VIC', desc:'3hr drive · Snow in winter · Hiking', beds:2, guests:4, pricePerNight:280, trend:'same', trendPct:0, img:'https://images.unsplash.com/photo-1510798831971-661eb04b3739?w=600&q=80', bookUrl:'https://www.airbnb.com.au/s/Mount-Buller--VIC/homes', tag:'' },
+  ],
+  BNE: [
+    { id:'we10', title:'Hinterland Hideaway', subtitle:'Tamborine Mountain, QLD', desc:'1hr drive · Rainforest · Waterfalls', beds:2, guests:4, pricePerNight:255, trend:'down', trendPct:11, img:'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=600&q=80', bookUrl:'https://www.airbnb.com.au/s/Tamborine-Mountain--QLD/homes', tag:'DEAL' },
+    { id:'we11', title:'Beach House', subtitle:'Noosa, QLD', desc:'1.5hr drive · National park · Surf', beds:3, guests:6, pricePerNight:385, trend:'up', trendPct:6, img:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80', bookUrl:'https://www.airbnb.com.au/s/Noosa--QLD/homes', tag:'POPULAR' },
+  ],
+  PER: [
+    { id:'we12', title:'Vineyard Cottage', subtitle:'Margaret River, WA', desc:'3hr drive · World-class wine · Caves', beds:2, guests:4, pricePerNight:275, trend:'down', trendPct:16, img:'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80', bookUrl:'https://www.airbnb.com.au/s/Margaret-River--WA/homes', tag:'DEAL' },
+    { id:'we13', title:'Coastal Retreat', subtitle:'Dunsborough, WA', desc:'2.5hr drive · Crystal water · Whale watching', beds:3, guests:6, pricePerNight:340, trend:'same', trendPct:0, img:'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=600&q=80', bookUrl:'https://www.airbnb.com.au/s/Dunsborough--WA/homes', tag:'' },
+  ],
+};
 
-const MOCK_INSPIRE_STAYS = [
-  { id:'is1', title:'Clifftop Cabin · Blue Mountains', type:'cabin', location:'Blue Mountains, NSW', price:285, avg:380, drop:25, beds:2, guests:4, nights:2, source:'airbnb', bookUrl:'https://www.airbnb.com.au', img:'https://images.unsplash.com/photo-1510798831971-661eb04b3739?w=600&q=80', period:'weekend', tag:'UNIQUE STAY' },
-  { id:'is2', title:'Beachfront House · Byron Bay', type:'house', location:'Byron Bay, NSW', price:420, avg:520, drop:19, beds:3, guests:6, nights:2, source:'airbnb', bookUrl:'https://www.airbnb.com.au', img:'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=600&q=80', period:'weekend', tag:'HOT DEAL' },
-  { id:'is3', title:'Hinterland Farmhouse · Bangalow', type:'countryside', location:'Bangalow, NSW', price:310, avg:310, drop:0, beds:3, guests:6, nights:2, source:'airbnb', bookUrl:'https://www.airbnb.com.au', img:'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=600&q=80', period:'weekend', tag:'' },
-  { id:'is4', title:'Treehouse Retreat · Hunter Valley', type:'cabin', location:'Hunter Valley, NSW', price:245, avg:320, drop:23, beds:1, guests:2, nights:2, source:'airbnb', bookUrl:'https://www.airbnb.com.au', img:'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80', period:'weekend', tag:'UNIQUE STAY' },
-  { id:'is5', title:'Luxury Villa · Bali', type:'villa', location:'Seminyak, Bali', price:320, avg:450, drop:29, beds:3, guests:6, nights:7, source:'airbnb', bookUrl:'https://www.airbnb.com.au', img:'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=600&q=80', period:'month', tag:'BEST VALUE' },
-  { id:'is6', title:'Modern Apartment · Tokyo', type:'apartment', location:'Shinjuku, Tokyo', price:180, avg:220, drop:18, beds:2, guests:4, nights:7, source:'booking', bookUrl:'https://www.booking.com', img:'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=600&q=80', period:'month', tag:'' },
-  { id:'is7', title:'Heritage Cottage · Queenstown', type:'house', location:'Queenstown, NZ', price:290, avg:360, drop:19, beds:2, guests:4, nights:5, source:'airbnb', bookUrl:'https://www.airbnb.com.au', img:'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=600&q=80', period:'month', tag:'ESCAPE' },
-  { id:'is8', title:'Overwater Bungalow · Maldives', type:'villa', location:'North Malé Atoll', price:890, avg:1200, drop:26, beds:1, guests:2, nights:7, source:'booking', bookUrl:'https://www.booking.com', img:'https://images.unsplash.com/photo-1520466809213-7b9a56adcd45?w=600&q=80', period:'anytime', tag:'BUCKET LIST' },
-  { id:'is9', title:'Penthouse · Bangkok', type:'apartment', location:'Sukhumvit, Bangkok', price:195, avg:260, drop:25, beds:2, guests:4, nights:7, source:'booking', bookUrl:'https://www.booking.com', img:'https://images.unsplash.com/photo-1508009603885-50cf7c579365?w=600&q=80', period:'anytime', tag:'' },
+const MOCK_INSPIRE = [
+  { city:'Bangkok', country:'Thailand', code:'BKK', price:892, trend:'down', trendPct:14, stayFrom:145, img:'https://images.unsplash.com/photo-1508009603885-50cf7c579365?w=600&q=80', tag:'HOT DEAL' },
+  { city:'Bali', country:'Indonesia', code:'DPS', price:680, trend:'down', trendPct:22, stayFrom:95, img:'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=600&q=80', tag:'BEST VALUE' },
+  { city:'Singapore', country:'Singapore', code:'SIN', price:490, trend:'up', trendPct:5, stayFrom:180, img:'https://images.unsplash.com/photo-1525625293386-3f8f99389edd?w=600&q=80', tag:'' },
+  { city:'Tokyo', country:'Japan', code:'NRT', price:1240, trend:'down', trendPct:8, stayFrom:120, img:'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=600&q=80', tag:'' },
+  { city:'Queenstown', country:'New Zealand', code:'ZQN', price:410, trend:'down', trendPct:19, stayFrom:160, img:'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=600&q=80', tag:'ESCAPE' },
+  { city:'Phuket', country:'Thailand', code:'HKT', price:780, trend:'same', trendPct:0, stayFrom:110, img:'https://images.unsplash.com/photo-1589394815804-964ed0be2eb5?w=600&q=80', tag:'' },
+  { city:'Kuala Lumpur', country:'Malaysia', code:'KUL', price:380, trend:'down', trendPct:11, stayFrom:85, img:'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=600&q=80', tag:'CHEAP' },
+  { city:'London', country:'UK', code:'LHR', price:1890, trend:'up', trendPct:7, stayFrom:220, img:'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=600&q=80', tag:'' },
 ];
 
 const MOCK_LM_FLIGHTS = [
@@ -1622,88 +1650,302 @@ function renderStayCard(s, container) {
   container.appendChild(div);
 }
 
-let _inspireType = 'flights';
 let _inspirePeriod = 'weekend';
+let _inspireAirport = 'SYD';
 
-function switchInspireType(type) {
-  _inspireType = type;
-  const fb = document.getElementById('inspire-flights-btn');
-  const sb = document.getElementById('inspire-stays-btn');
-  fb.style.color = type === 'flights' ? 'var(--accent)' : 'var(--textDim)';
-  fb.style.borderBottomColor = type === 'flights' ? 'var(--accent)' : 'transparent';
-  sb.style.color = type === 'stays' ? 'var(--green)' : 'var(--textDim)';
-  sb.style.borderBottomColor = type === 'stays' ? 'var(--green)' : 'transparent';
+function changeInspireAirport() {
+  const airports = ['SYD','MEL','BNE','PER','ADL'];
+  const current = _inspireAirport;
+  const next = airports[(airports.indexOf(current) + 1) % airports.length];
+  _inspireAirport = next;
+  document.getElementById('inspire-airport-label').textContent = next;
   renderInspire();
 }
 
-function renderInspire() {
-  const list = document.getElementById('inspire-list');
+function switchInspireFilter(filter, btn) {
+  _inspirePeriod = filter;
+  document.querySelectorAll('[id^="inspire-period-"]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderInspire();
+}
+
+// Get Friday and Sunday dates for this coming weekend
+function getWeekendDates() {
+  const today = new Date();
+  const day = today.getDay(); // 0=Sun, 5=Fri
+  const daysToFri = day <= 5 ? 5 - day : 6;
+  const fri = new Date(today); fri.setDate(today.getDate() + (daysToFri === 0 ? 7 : daysToFri));
+  const sun = new Date(fri); sun.setDate(fri.getDate() + 2);
+  const fmt = d => d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
+  return {
+    fri, sun,
+    friStr: fmt(fri),
+    sunStr: fmt(sun),
+    friISO: fri.toISOString().split('T')[0],
+    sunISO: sun.toISOString().split('T')[0],
+  };
+}
+
+async function renderInspire() {
+  const wd = getWeekendDates();
+  const airport = _inspireAirport || STATE.airport || 'SYD';
+
+  // Show/hide sections based on period
+  const weekendStays = document.getElementById('inspire-weekend-stays');
+  const weekendFlights = document.getElementById('inspire-weekend-flights');
+  const destinations = document.getElementById('inspire-destinations');
+
+  if (_inspirePeriod === 'weekend') {
+    if (weekendStays) weekendStays.style.display = 'block';
+    if (weekendFlights) weekendFlights.style.display = 'block';
+    if (destinations) destinations.style.display = 'none';
+    renderWeekendStays(airport, wd);
+    renderWeekendFlights(airport, wd);
+  } else {
+    if (weekendStays) weekendStays.style.display = 'none';
+    if (weekendFlights) weekendFlights.style.display = 'none';
+    if (destinations) destinations.style.display = 'block';
+    renderDestinations(airport);
+  }
+}
+
+function renderWeekendStays(airport, wd) {
+  const list = document.getElementById('inspire-weekend-stays-list');
   if (!list) return;
   list.innerHTML = '';
 
-  if (_inspireType === 'flights') {
-    MOCK_INSPIRE.forEach((d, i) => {
-      const div = document.createElement('div');
-      div.className = 'inspire-card fade-in';
-      div.style.animationDelay = (i * 0.08) + 's';
-      div.innerHTML = `
-        <img class="inspire-img" src="${d.img}" alt="${d.city}" loading="lazy">
-        <div class="inspire-overlay"></div>
-        ${d.tag ? `<div class="inspire-badge">${d.tag}</div>` : ''}
-        <div class="inspire-content">
-          <div class="inspire-city">${d.city.toUpperCase()}</div>
-          <div class="inspire-country">${d.country}</div>
-          <div style="display:flex;align-items:flex-end;justify-content:space-between">
-            <div>
-              <div class="inspire-from">from</div>
-              <div class="inspire-price">$${d.price} AUD</div>
-            </div>
-            ${d.drop > 0 ? `<div style="font-size:11px;color:var(--green);letter-spacing:1px">↓ ${d.drop}% below avg</div>` : ''}
-          </div>
-        </div>`;
-      div.addEventListener('click', () => showInspireDetail(d));
-      list.appendChild(div);
-    });
-  } else {
-    const stays = _inspirePeriod === 'anytime'
-      ? MOCK_INSPIRE_STAYS
-      : MOCK_INSPIRE_STAYS.filter(s => s.period === _inspirePeriod);
+  const escapes = WEEKEND_ESCAPES[airport] || WEEKEND_ESCAPES['SYD'];
+  const fri = wd.friStr;
+  const sun = wd.sunStr;
 
-    if (!stays.length) {
-      list.innerHTML = `<div class="empty"><div class="empty-title">NO STAYS FOUND</div><div class="empty-body" style="font-family:var(--sans);color:var(--textDim);font-size:13px;margin-top:8px;">Try a different time period.</div></div>`;
-      return;
-    }
+  escapes.forEach((s, i) => {
+    const trendIcon = s.trend === 'down' ? `<span style="color:var(--green);font-weight:700;">↓ ${s.trendPct}% this week</span>`
+      : s.trend === 'up' ? `<span style="color:var(--red);font-weight:700;">↑ ${s.trendPct}% this week</span>`
+      : `<span style="color:var(--text2);">→ Stable</span>`;
 
-    stays.forEach((s, i) => {
-      const isGood = s.drop > 0;
-      const srcColor = s.source === 'airbnb' ? 'var(--red)' : 'var(--accent)';
-      const div = document.createElement('div');
-      div.className = 'inspire-card fade-in';
-      div.style.animationDelay = (i * 0.08) + 's';
-      div.style.height = '220px';
-      div.innerHTML = `
-        <img class="inspire-img" src="${s.img}" alt="${s.title}" loading="lazy">
-        <div class="inspire-overlay"></div>
-        ${s.tag ? `<div class="inspire-badge" style="background:${isGood ? 'var(--green)' : 'rgba(255,255,255,0.15)'};color:${isGood ? 'var(--bg0)' : '#fff'}">${s.tag}</div>` : ''}
-        <div style="position:absolute;top:12px;right:12px;padding:3px 8px;border-radius:4px;font-size:9px;letter-spacing:1px;background:rgba(0,0,0,0.6);color:${srcColor};border:1px solid ${srcColor};backdrop-filter:blur(4px);">${s.source === 'airbnb' ? 'AIRBNB' : 'BOOKING'}</div>
-        <div class="inspire-content">
-          <div class="inspire-city" style="font-size:18px;letter-spacing:1px;line-height:1.3;">${s.title}</div>
-          <div class="inspire-country">${s.location} · ${s.beds} bed · ${s.guests} guests</div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
-            <div>
-              <div class="inspire-from">from</div>
-              <div class="inspire-price" style="color:var(--green);">$${s.price} <span style="font-size:13px;color:rgba(255,255,255,0.5)">/ night</span></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              ${isGood ? `<div style="font-size:11px;color:var(--green);letter-spacing:1px;">↓ ${s.drop}%</div>` : ''}
-              <button onclick="event.stopPropagation();window.open('${s.bookUrl}','_blank')" style="padding:8px 16px;border-radius:8px;background:${s.source === 'airbnb' ? 'var(--red)' : 'var(--accent)'};border:none;color:#fff;font-family:var(--display);font-size:15px;letter-spacing:1px;cursor:pointer;min-height:36px;">BOOK</button>
-            </div>
+    const totalNights = 2;
+    const totalPerPerson = Math.round(s.pricePerNight * totalNights / 2); // 2 adults
+
+    const div = document.createElement('div');
+    div.className = 'fade-in';
+    div.style.cssText = `margin-bottom:14px;border-radius:18px;overflow:hidden;position:relative;background:var(--bg1);border:1px solid var(--border);cursor:pointer;`;
+    div.style.animationDelay = (i * 0.06) + 's';
+    div.innerHTML = `
+      <!-- Photo -->
+      <div style="position:relative;height:160px;overflow:hidden;">
+        <img src="${s.img}" alt="${s.title}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">
+        <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.7) 0%,transparent 60%);"></div>
+        ${s.tag ? `<div style="position:absolute;top:12px;left:12px;padding:4px 12px;border-radius:100px;background:var(--green);color:#04080f;font-size:10px;font-weight:800;letter-spacing:0.5px;">${s.tag}</div>` : ''}
+        <div style="position:absolute;bottom:12px;left:14px;right:14px;">
+          <div style="font-size:18px;font-weight:700;color:#fff;line-height:1.2;">${s.title}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:2px;">${s.subtitle}</div>
+        </div>
+      </div>
+      <!-- Details -->
+      <div style="padding:14px 16px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">${s.desc}</div>
+            <div style="font-size:11px;color:var(--text2);">${s.beds} bed · up to ${s.guests} guests · Fri–Sun</div>
           </div>
-        </div>`;
-      div.addEventListener('click', () => showStayDetail(JSON.stringify(s)));
-      list.appendChild(div);
-    });
+          <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+            <div style="font-size:22px;font-weight:800;color:var(--green);">$${s.pricePerNight}</div>
+            <div style="font-size:10px;color:var(--text2);">per night</div>
+          </div>
+        </div>
+        <!-- Trip summary bar -->
+        <div style="background:var(--bg2);border-radius:10px;padding:10px 12px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:12px;color:var(--text1);">
+            <span style="font-weight:600;">${fri}</span> → <span style="font-weight:600;">${sun}</span>
+            <span style="color:var(--text2);margin-left:6px;">· 2 nights · ~$${totalPerPerson}/person</span>
+          </div>
+          <div style="font-size:11px;">${trendIcon}</div>
+        </div>
+        <!-- Action buttons -->
+        <div style="display:flex;gap:8px;">
+          <button onclick="event.stopPropagation();window.open('${s.bookUrl}','_blank')" style="flex:1;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--green),#00b880);border:none;color:#04080f;font-weight:700;font-size:14px;cursor:pointer;min-height:44px;">
+            Book Stay
+          </button>
+          <button onclick="event.stopPropagation();searchWeekendFlightForStay('${airport}','${s.subtitle.split(',')[0]}',this)" style="padding:12px 16px;border-radius:12px;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-weight:600;font-size:13px;cursor:pointer;min-height:44px;white-space:nowrap;">
+            + Flights
+          </button>
+        </div>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+async function renderWeekendFlights(airport, wd) {
+  const list = document.getElementById('inspire-weekend-flights-list');
+  if (!list) return;
+  list.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:8px 0 14px;color:var(--text2);font-size:13px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" style="animation:spin 1.2s linear infinite;flex-shrink:0;"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>
+    Finding cheapest weekend flights from ${airport}…
+  </div>`;
+
+  const workerUrl = getWorkerUrl();
+  if (!workerUrl) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:4px 0 12px;">Connect your Worker in Settings to see live flights.</div>';
+    return;
   }
+
+  try {
+    // Search a few popular short-haul routes for the weekend
+    const routes = (WEEKEND_ESCAPES[airport] || []).slice(0, 3).map(e => e.subtitle.split(',')[0]);
+    const friISO = wd.friISO;
+
+    const resp = await fetch(`${workerUrl}/api/lastminute/flights?from=${airport}`, {
+      headers: { 'X-Roam-Token': getSecretToken() }
+    });
+    const data = resp.ok ? await resp.json() : { flights: [] };
+    const flights = (data.flights || []).filter(f => f.depart?.startsWith(friISO) || f.price < 300).slice(0, 4);
+
+    list.innerHTML = '';
+    if (flights.length) {
+      flights.forEach((f, i) => {
+        const div = document.createElement('div');
+        div.className = 'fade-in';
+        div.style.cssText = `margin-bottom:10px;background:var(--bg1);border:1px solid var(--border);border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;`;
+        div.style.animationDelay = (i * 0.06) + 's';
+        const dateStr = f.depart ? new Date(f.depart).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'}) : wd.friStr;
+        div.innerHTML = `
+          <div>
+            <div style="font-size:16px;font-weight:700;color:var(--text0);">${f.from} → ${f.to}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px;">${f.airline} · ${dateStr} · ${f.duration || ''}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:22px;font-weight:800;color:var(--accent);">$${f.price}</div>
+            <div style="font-size:10px;color:var(--text2);">per person</div>
+            <button onclick="event.stopPropagation();window.open('${f.bookUrl || '#'}','_blank')" style="margin-top:6px;padding:6px 14px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-weight:700;font-size:12px;cursor:pointer;min-height:32px;">BOOK</button>
+          </div>`;
+        list.appendChild(div);
+      });
+    } else {
+      list.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:4px 0 12px;">No cheap weekend flights found right now. Try Last Minute tab for today\'s deals.</div>';
+    }
+  } catch(e) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:4px 0 12px;">Could not load flight deals. Check your connection.</div>';
+  }
+}
+
+async function renderDestinations(airport) {
+  const list = document.getElementById('inspire-destinations-list');
+  if (!list) return;
+
+  // Show skeleton loading
+  list.innerHTML = Array(4).fill(0).map(() => `
+    <div style="height:220px;border-radius:18px;margin-bottom:14px;" class="shimmer"></div>
+  `).join('');
+
+  const workerUrl = getWorkerUrl();
+  const period = _inspirePeriod; // 'month' or 'anytime'
+
+  // Try to get live data, fall back to mock
+  let destinations = MOCK_INSPIRE;
+  if (workerUrl) {
+    try {
+      const resp = await fetch(`${workerUrl}/api/inspire?from=${airport}&period=${period}`, {
+        headers: { 'X-Roam-Token': getSecretToken() },
+        signal: AbortSignal.timeout(8000)
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.destinations?.length) destinations = data.destinations;
+      }
+    } catch(e) {}
+  }
+
+  list.innerHTML = '';
+  destinations.forEach((d, i) => {
+    const adults = STATE.adults || 2;
+    const nights = period === 'month' ? 5 : 7;
+    const flightTotal = d.price * adults;
+    const stayTotal = (d.stayFrom || 120) * nights;
+    const tripTotal = Math.round((flightTotal + stayTotal) / adults);
+
+    const trendIcon = d.trend === 'down'
+      ? `<div style="display:flex;align-items:center;gap:4px;background:var(--green-dim);padding:4px 10px;border-radius:100px;">
+           <span style="color:var(--green);font-size:14px;">↓</span>
+           <span style="color:var(--green);font-size:11px;font-weight:700;">${d.trendPct}% this week</span>
+         </div>`
+      : d.trend === 'up'
+      ? `<div style="display:flex;align-items:center;gap:4px;background:var(--red-dim);padding:4px 10px;border-radius:100px;">
+           <span style="color:var(--red);font-size:14px;">↑</span>
+           <span style="color:var(--red);font-size:11px;font-weight:700;">${d.trendPct}% this week</span>
+         </div>`
+      : `<div style="padding:4px 10px;border-radius:100px;background:var(--bg3);color:var(--text2);font-size:11px;">→ Stable</div>`;
+
+    const skyscannerUrl = `https://www.skyscanner.com.au/transport/flights/${airport.toLowerCase()}/${(d.code||'').toLowerCase()}/?adults=${adults}&currency=AUD`;
+
+    const div = document.createElement('div');
+    div.className = 'fade-in';
+    div.style.cssText = `margin-bottom:14px;border-radius:18px;overflow:hidden;position:relative;background:var(--bg1);border:1px solid var(--border);cursor:pointer;`;
+    div.style.animationDelay = (i * 0.06) + 's';
+    div.innerHTML = `
+      <!-- Photo -->
+      <div style="position:relative;height:180px;overflow:hidden;">
+        <img src="${d.img}" alt="${d.city}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">
+        <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.75) 0%,transparent 55%);"></div>
+        ${d.tag ? `<div style="position:absolute;top:12px;left:12px;padding:4px 12px;border-radius:100px;background:var(--amber);color:#04080f;font-size:10px;font-weight:800;">${d.tag}</div>` : ''}
+        <!-- Trend badge -->
+        <div style="position:absolute;top:12px;right:12px;">${trendIcon}</div>
+        <div style="position:absolute;bottom:12px;left:14px;right:14px;">
+          <div style="font-size:20px;font-weight:800;color:#fff;">${d.city}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.7);">${d.country}</div>
+        </div>
+      </div>
+      <!-- Price breakdown -->
+      <div style="padding:14px 16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div style="background:var(--bg2);border-radius:10px;padding:10px 12px;text-align:center;">
+            <div style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Flight</div>
+            <div style="font-size:18px;font-weight:800;color:var(--accent);">$${d.price}</div>
+            <div style="font-size:10px;color:var(--text2);">per person</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:10px;padding:10px 12px;text-align:center;">
+            <div style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Stay</div>
+            <div style="font-size:18px;font-weight:800;color:var(--green);">$${d.stayFrom || 120}</div>
+            <div style="font-size:10px;color:var(--text2);">per night</div>
+          </div>
+          <div style="background:var(--accent-dim);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;text-align:center;">
+            <div style="font-size:10px;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Total</div>
+            <div style="font-size:18px;font-weight:800;color:var(--accent);">$${tripTotal}</div>
+            <div style="font-size:10px;color:var(--accent);">pp · ${nights} nights</div>
+          </div>
+        </div>
+        <!-- Book buttons -->
+        <div style="display:flex;gap:8px;">
+          <button onclick="event.stopPropagation();window.open('${skyscannerUrl}','_blank')" style="flex:1;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent-mid));border:none;color:#fff;font-weight:700;font-size:14px;cursor:pointer;min-height:44px;display:flex;align-items:center;justify-content:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>
+            Book Flight
+          </button>
+          <button onclick="event.stopPropagation();window.open('https://www.airbnb.com.au/s/${d.city}/homes','_blank')" style="flex:1;padding:12px;border-radius:12px;background:var(--green-dim);border:1px solid var(--green);color:var(--green);font-weight:700;font-size:14px;cursor:pointer;min-height:44px;display:flex;align-items:center;justify-content:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+            Book Stay
+          </button>
+        </div>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+function searchWeekendFlightForStay(from, destination, btn) {
+  // Switch to Hunt > Search, pre-fill from and destination
+  switchScreen('hunt');
+  switchHuntTab('search', document.querySelector('.mode-tab'));
+  setTimeout(() => {
+    const fsFrom = document.getElementById('fs-from');
+    const fsTo = document.getElementById('fs-to');
+    if (fsFrom) fsFrom.value = from;
+    if (fsTo) fsTo.value = destination;
+    const wd = getWeekendDates();
+    const fsDepart = document.getElementById('fs-depart');
+    if (fsDepart) fsDepart.value = wd.friISO;
+    setTripType('return');
+    const fsReturn = document.getElementById('fs-return');
+    if (fsReturn) fsReturn.value = wd.sunISO;
+    document.querySelector('.search-btn')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, 300);
 }
 
 async function renderLastMinute() {
